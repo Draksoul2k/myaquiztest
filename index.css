@@ -534,6 +534,9 @@ input, textarea, button {
   flex-direction: column;
   background-color: var(--bg-app);
   transition: margin-left var(--transition-normal);
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Mobile Header */
@@ -586,6 +589,7 @@ input, textarea, button {
   flex-direction: column;
   gap: 32px;
   transition: padding var(--transition-normal);
+  min-width: 0;
 }
 
 .loading-spinner-container {
@@ -1779,6 +1783,9 @@ input:checked + .slider:before {
   
   .main-content {
     margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   
   .mobile-header {
@@ -1788,6 +1795,9 @@ input:checked + .slider:before {
   .view-viewport {
     padding: 20px;
     gap: 20px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
   
   .welcome-title {
@@ -1797,4 +1807,16 @@ input:checked + .slider:before {
   .pricing-cards-container {
     grid-template-columns: 1fr;
   }
+  
+  /* Prevent iOS Safari auto-zoom on input focus */
+  .form-group input, 
+  .form-group textarea, 
+  .form-group select,
+  .ai-composer-textarea,
+  #authEmail,
+  #authPassword,
+  #authName {
+    font-size: 16px !important;
+  }
 }
+
