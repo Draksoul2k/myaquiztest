@@ -1774,11 +1774,25 @@ input:checked + .slider:before {
     box-shadow: 0 0 20px rgba(0,0,0,0.15);
     height: 100vh;
     height: 100dvh;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   .sidebar.show {
     transform: translateX(0);
+  }
+
+  .sidebar-nav {
+    flex: none;
+    overflow-y: visible;
+  }
+
+  .sidebar-footer {
+    position: static;
+    margin-top: auto;
+    padding-bottom: 80px !important;
   }
   
   .sidebar-toggle {
