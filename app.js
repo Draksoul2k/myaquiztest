@@ -90,11 +90,26 @@ function init() {
     views.renderAuthScreen(authContainer);
   }
 
+  // Open upgrade Pro modal hook
+  window.openUpgradeModal = () => {
+    const modal = document.getElementById("modalUpgradePro");
+    if (modal) {
+      const placeholder = document.getElementById("paymentContentPlaceholder");
+      const activeState = store.getState();
+      if (placeholder && activeState.user.email) {
+        placeholder.innerText = `MYAQUIZ PRO ${activeState.user.email.split('@')[0].toUpperCase()}`;
+      }
+      resetPaymentModal();
+      modal.classList.add("show");
+    }
+  };
+
   // 5. Set up global event listeners
   setupNavigation();
   setupModals();
   setupMobileHandlers();
   setupAuthLogout();
+  initAmbientCanvas();
 }
 
 // Render dynamic view
@@ -158,10 +173,15 @@ function renderUserProfileWidget() {
   }
 
   if (planBadge) {
-    planBadge.innerText = state.user.plan;
-    if (state.user.plan === "Pro") {
+    const sub = store.getSubscriptionStatus();
+    if (sub.plan === "Pro") {
+      planBadge.innerText = "Pro";
       planBadge.className = "user-badge pro";
+    } else if (sub.plan === "Trial") {
+      planBadge.innerText = "Dùng thử";
+      planBadge.className = "user-badge trial";
     } else {
+      planBadge.innerText = "Miễn phí";
       planBadge.className = "user-badge";
     }
   }
@@ -233,8 +253,33 @@ function setupNavigation() {
   }
 }
 
+// Reset Payment Modal UI state
+function resetPaymentModal() {
+  const loadingArea = document.getElementById("paymentLoadingArea");
+  const successArea = document.getElementById("paymentSuccessArea");
+  if (loadingArea) loadingArea.style.display = "none";
+  if (successArea) successArea.style.display = "none";
+  
+  const columns = document.querySelector(".payment-columns");
+  if (columns) columns.style.display = "flex";
+  
+  const intro = document.querySelector(".payment-intro");
+  if (intro) intro.style.display = "block";
+  
+  const footer = document.getElementById("paymentModalFooter");
+  if (footer) footer.style.display = "flex";
+  
+  const btn = document.getElementById("btnConfirmPayment");
+  if (btn) {
+    btn.disabled = false;
+    btn.querySelector("span").innerText = "Xác nhận đã chuyển khoản";
+  }
+}
+
 // Modals event listeners
 function setupModals() {
+  const modalUpgradePro = document.getElementById("modalUpgradePro");
+  
   document.getElementById("btnAddClass").addEventListener("click", () => modalCreateClass.classList.add("show"));
   document.getElementById("btnJoinClass").addEventListener("click", () => modalJoinClass.classList.add("show"));
   
@@ -246,7 +291,9 @@ function setupModals() {
     btn.addEventListener("click", () => {
       modalCreateClass.classList.remove("show");
       modalJoinClass.classList.remove("show");
+      if (modalUpgradePro) modalUpgradePro.classList.remove("show");
       clearModalInputs();
+      resetPaymentModal();
     });
   });
 
@@ -259,6 +306,11 @@ function setupModals() {
     if (e.target === modalJoinClass) {
       modalJoinClass.classList.remove("show");
       clearModalInputs();
+    }
+    if (e.target === modalUpgradePro) {
+      modalUpgradePro.classList.remove("show");
+      clearModalInputs();
+      resetPaymentModal();
     }
   });
 
@@ -301,6 +353,50 @@ function setupModals() {
     renderSidebarClasses();
     renderView(activeView);
   });
+
+  // Confirm Payment simulated checkout listener
+  const btnConfirm = document.getElementById("btnConfirmPayment");
+  if (btnConfirm) {
+    btnConfirm.addEventListener("click", () => {
+      btnConfirm.disabled = true;
+      
+      // Hide payment details
+      const columns = document.querySelector(".payment-columns");
+      const intro = document.querySelector(".payment-intro");
+      const footer = document.getElementById("paymentModalFooter");
+      
+      if (columns) columns.style.display = "none";
+      if (intro) intro.style.display = "none";
+      if (footer) footer.style.display = "none";
+      
+      // Show loading
+      const loadingArea = document.getElementById("paymentLoadingArea");
+      const statusText = document.getElementById("paymentSimulateStatusText");
+      if (loadingArea) loadingArea.style.display = "flex";
+      if (statusText) statusText.innerText = "Đang kết nối cổng ngân hàng xác thực...";
+      
+      setTimeout(() => {
+        if (statusText) statusText.innerText = "Đã tìm thấy giao dịch! Đang tiến hành cộng hạn gói Pro...";
+        
+        setTimeout(() => {
+          // Perform Pro upgrade in store
+          store.upgradeToPro(1);
+          
+          // Show success step
+          if (loadingArea) loadingArea.style.display = "none";
+          const successArea = document.getElementById("paymentSuccessArea");
+          if (successArea) successArea.style.display = "flex";
+          
+          setTimeout(() => {
+            if (modalUpgradePro) modalUpgradePro.classList.remove("show");
+            renderUserProfileWidget();
+            window.refreshActiveView();
+            resetPaymentModal();
+          }, 2500);
+        }, 1500);
+      }, 1500);
+    });
+  }
 }
 
 function clearModalInputs() {
@@ -346,3 +442,196 @@ function setupAuthLogout() {
 
 // Initialize on load
 document.addEventListener("DOMContentLoaded", init);
+
+// Global spotlight hover coordinates tracking for cards
+document.addEventListener("mousemove", (e) => {
+  const cards = document.querySelectorAll(".card, .suggested-exam-card, .item-list-card");
+  cards.forEach(card => {
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    card.style.setProperty("--mouse-x", `${x}px`);
+    card.style.setProperty("--mouse-y", `${y}px`);
+  });
+});
+
+// Ambient Canvas Particle Network Logic
+function initAmbientCanvas() {
+  const canvas = document.getElementById("ambient-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  
+  let width = canvas.width = window.innerWidth;
+  let height = canvas.height = window.innerHeight;
+  
+  window.addEventListener("resize", () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+  
+  // Background drifting particles
+  const particles = [];
+  const maxParticles = 65;
+  
+  class Particle {
+    constructor() {
+      this.x = Math.random() * width;
+      this.y = Math.random() * height;
+      this.vx = (Math.random() - 0.5) * 0.4;
+      this.vy = (Math.random() - 0.5) * 0.4;
+      this.radius = Math.random() * 2 + 0.8;
+    }
+    
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      
+      if (this.x < 0 || this.x > width) this.vx *= -1;
+      if (this.y < 0 || this.y > height) this.vy *= -1;
+    }
+    
+    draw() {
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = isDark ? "rgba(17, 195, 236, 0.45)" : "rgba(0, 180, 216, 0.35)";
+      ctx.fill();
+    }
+  }
+  
+  for (let i = 0; i < maxParticles; i++) {
+    particles.push(new Particle());
+  }
+
+  // Interactive mouse trail particles
+  const trailParticles = [];
+  
+  class TrailParticle {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.vx = (Math.random() - 0.5) * 1.5;
+      this.vy = (Math.random() - 0.5) * 1.5;
+      this.radius = Math.random() * 2.5 + 1.2;
+      this.alpha = 1.0;
+      this.decay = Math.random() * 0.02 + 0.015; // Decays in ~40-60 frames
+    }
+    
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.alpha -= this.decay;
+    }
+    
+    draw() {
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = isDark 
+        ? `rgba(0, 240, 255, ${this.alpha * 0.8})` 
+        : `rgba(0, 180, 216, ${this.alpha * 0.8})`;
+      ctx.fill();
+    }
+  }
+  
+  let mouse = { x: null, y: null };
+  document.addEventListener("mousemove", (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    
+    // Spawn trail particles on mouse move (limit max to keep performance high)
+    if (trailParticles.length < 120) {
+      for (let i = 0; i < 2; i++) {
+        trailParticles.push(new TrailParticle(e.clientX, e.clientY));
+      }
+    }
+  });
+  
+  document.addEventListener("mouseleave", () => {
+    mouse.x = null;
+    mouse.y = null;
+  });
+  
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+    
+    // 1. Draw ambient glowing cursor halo
+    if (mouse.x !== null && mouse.y !== null) {
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      const gradient = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 160);
+      if (isDark) {
+        gradient.addColorStop(0, "rgba(17, 195, 236, 0.12)");
+        gradient.addColorStop(1, "rgba(17, 195, 236, 0)");
+      } else {
+        gradient.addColorStop(0, "rgba(0, 180, 216, 0.08)");
+        gradient.addColorStop(1, "rgba(0, 180, 216, 0)");
+      }
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, 160, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    }
+    
+    // 2. Draw background particles
+    particles.forEach(p => {
+      p.update();
+      p.draw();
+    });
+    
+    // 3. Draw & update interactive trail particles
+    for (let i = trailParticles.length - 1; i >= 0; i--) {
+      const tp = trailParticles[i];
+      tp.update();
+      if (tp.alpha <= 0) {
+        trailParticles.splice(i, 1);
+      } else {
+        tp.draw();
+      }
+    }
+    
+    // 4. Draw constellation lines between background particles
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const lineColor = isDark ? "rgba(17, 195, 236, " : "rgba(0, 180, 216, ";
+    
+    for (let i = 0; i < particles.length; i++) {
+      const p1 = particles[i];
+      for (let j = i + 1; j < particles.length; j++) {
+        const p2 = particles[j];
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < 110) {
+          const alpha = (1 - dist / 110) * 0.15;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = lineColor + alpha + ")";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+      
+      // 5. Draw connection lines between background particles and mouse
+      if (mouse.x !== null && mouse.y !== null) {
+        const dx = p1.x - mouse.x;
+        const dy = p1.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150) {
+          const alpha = (1 - dist / 150) * 0.42;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.strokeStyle = lineColor + alpha + ")";
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+    }
+    
+    requestAnimationFrame(animate);
+  }
+  
+  animate();
+}
+

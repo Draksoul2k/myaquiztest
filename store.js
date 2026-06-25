@@ -7,15 +7,17 @@ const DEFAULT_STATE = {
   user: {
     name: "Thìn Nguyễn",
     email: "dalk2000vtp@gmail.com",
-    plan: "Free",
+    plan: "Trial",
     theme: "light",
     geminiApiKey: "",
     googleClientId: "591954709167-dgup0n03seg81grv7ht3t4o5m9osgd0u.apps.googleusercontent.com",
-    avatarUrl: ""
+    avatarUrl: "",
+    createdAt: "",
+    proExpiredAt: ""
   },
   // Registered users for email/password auth simulation
   users: [
-    { email: "dalk2000vtp@gmail.com", password: "123", name: "Thìn Nguyễn", plan: "Free" }
+    { email: "dalk2000vtp@gmail.com", password: "123", name: "Thìn Nguyễn", plan: "Trial", createdAt: "", proExpiredAt: "" }
   ],
   classes: [
     { id: "c1", name: "Lớp 12A1 - Toán Giải Tích", subject: "Toán", desc: "Lớp ôn thi THPT Quốc Gia" },
@@ -153,11 +155,15 @@ export function login(email, password) {
   const matchedUser = state.users.find(u => u.email === email && u.password === password);
   if (matchedUser) {
     state.isLoggedIn = true;
+    const nowStr = new Date().toISOString();
     state.user = {
+      ...state.user,
       name: matchedUser.name,
       email: matchedUser.email,
-      plan: matchedUser.plan || "Free",
-      theme: state.user.theme || "light"
+      plan: matchedUser.plan || "Trial",
+      theme: state.user.theme || "light",
+      createdAt: matchedUser.createdAt || state.user.createdAt || nowStr,
+      proExpiredAt: matchedUser.proExpiredAt || state.user.proExpiredAt || ""
     };
     saveState(state);
     return true;
@@ -169,25 +175,35 @@ export function loginGoogle(email, name, avatarUrl) {
   const state = getState();
   state.isLoggedIn = true;
   
+  const nowStr = new Date().toISOString();
   // Set active user, preserve theme, API keys, etc.
   state.user = {
     ...state.user,
     name: name,
     email: email,
     avatarUrl: avatarUrl || "",
-    plan: state.user.plan || "Free"
+    plan: state.user.plan || "Trial",
+    createdAt: state.user.createdAt || nowStr,
+    proExpiredAt: state.user.proExpiredAt || ""
   };
 
   // Add to simulated database list if they don't exist yet
-  const exists = state.users.some(u => u.email === email);
-  if (!exists) {
+  const userInList = state.users.find(u => u.email === email);
+  if (!userInList) {
     state.users.push({
       email: email,
       name: name,
-      plan: "Free",
+      plan: "Trial",
       password: "google_account", // mock
-      avatarUrl: avatarUrl || ""
+      avatarUrl: avatarUrl || "",
+      createdAt: nowStr,
+      proExpiredAt: ""
     });
+  } else {
+    // Sync list values to active user if they already exist
+    state.user.plan = userInList.plan || "Trial";
+    state.user.createdAt = userInList.createdAt || nowStr;
+    state.user.proExpiredAt = userInList.proExpiredAt || "";
   }
 
   saveState(state);
@@ -201,17 +217,28 @@ export function register(name, email, password) {
     return false; // Email already registered
   }
 
+  const nowStr = new Date().toISOString();
   // Create new user in users array
-  const newUser = { name, email, password, plan: "Free" };
+  const newUser = { 
+    name, 
+    email, 
+    password, 
+    plan: "Trial", 
+    createdAt: nowStr, 
+    proExpiredAt: "" 
+  };
   state.users.push(newUser);
 
   // Automatically log them in
   state.isLoggedIn = true;
   state.user = {
+    ...state.user,
     name: newUser.name,
     email: newUser.email,
     plan: newUser.plan,
-    theme: state.user.theme || "light"
+    theme: state.user.theme || "light",
+    createdAt: nowStr,
+    proExpiredAt: ""
   };
 
   saveState(state);
@@ -329,4 +356,63 @@ export function removeExam(examId) {
   const state = getState();
   state.exams = state.exams.filter(e => e.id !== examId);
   saveState(state);
+}
+
+// Get subscription plan details (calculates trial/Pro remaining time)
+export function getSubscriptionStatus() {
+  const state = getState();
+  const user = state.user;
+  
+  if (!user.createdAt) {
+    // Fallback if not initialized
+    const nowStr = new Date().toISOString();
+    user.createdAt = nowStr;
+    state.user.createdAt = nowStr;
+    saveState(state);
+  }
+  
+  const createdTime = new Date(user.createdAt).getTime();
+  const trialExpiredTime = createdTime + 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+  const now = Date.now();
+  
+  // 1. Check if user is Pro
+  if (user.plan === "Pro") {
+    const proExpiredTime = user.proExpiredAt ? new Date(user.proExpiredAt).getTime() : 0;
+    if (now < proExpiredTime) {
+      const daysRemaining = Math.max(0, Math.ceil((proExpiredTime - now) / (24 * 60 * 60 * 1000)));
+      return { plan: "Pro", status: "active", daysRemaining, expiresAt: user.proExpiredAt };
+    } else {
+      // Pro expired -> Revert to Free
+      return { plan: "Free", status: "pro_expired", daysRemaining: 0, expiresAt: user.proExpiredAt };
+    }
+  }
+  
+  // 2. Check if user is still in Trial
+  if (now < trialExpiredTime) {
+    const daysRemaining = Math.max(0, Math.ceil((trialExpiredTime - now) / (24 * 60 * 60 * 1000)));
+    return { plan: "Trial", status: "active", daysRemaining, expiresAt: new Date(trialExpiredTime).toISOString() };
+  }
+  
+  // 3. Otherwise, Trial has expired -> Free
+  return { plan: "Free", status: "trial_expired", daysRemaining: 0, expiresAt: new Date(trialExpiredTime).toISOString() };
+}
+
+// Upgrade user to Pro (simulated checkout success handler)
+export function upgradeToPro(months = 1) {
+  const state = getState();
+  const now = Date.now();
+  const proExpiration = now + months * 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+  
+  state.user.plan = "Pro";
+  state.user.proExpiredAt = new Date(proExpiration).toISOString();
+  
+  // Update in simulated users list
+  const userIdx = state.users.findIndex(u => u.email === state.user.email);
+  if (userIdx !== -1) {
+    state.users[userIdx].plan = "Pro";
+    state.users[userIdx].proExpiredAt = state.user.proExpiredAt;
+  }
+  
+  saveState(state);
+  return getSubscriptionStatus();
 }

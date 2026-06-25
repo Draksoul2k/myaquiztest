@@ -140,8 +140,8 @@ export function renderAuthScreen(container) {
               <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="url(#logo-grad-auth)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
               <defs>
                 <linearGradient id="logo-grad-auth" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#a78bfa" />
-                  <stop offset="1" stop-color="#8b5cf6" />
+                  <stop stop-color="#00f0ff" />
+                  <stop offset="1" stop-color="#0072ff" />
                 </linearGradient>
               </defs>
             </svg>
@@ -617,6 +617,19 @@ function setupHomeListeners(container) {
   const generateType = document.getElementById("aiGenerateType");
 
   btnSubmit.addEventListener("click", () => {
+    // 1. Check Subscription status first
+    const subStatus = store.getSubscriptionStatus();
+    const state = store.getState();
+    
+    // Block AI if plan is Free (expired trial/pro) and user has no personal API Key configured
+    if (subStatus.plan === "Free" && !state.user.geminiApiKey) {
+      alert("Thời gian dùng thử miễn phí 7 ngày của bạn đã hết hạn.\nVui lòng nâng cấp gói Pro hoặc tự cấu hình Gemini API Key cá nhân trong mục Cài đặt để tiếp tục sử dụng tính năng thông minh bằng AI!");
+      if (window.openUpgradeModal) {
+        window.openUpgradeModal();
+      }
+      return;
+    }
+
     const promptText = promptInput.value.trim();
     if (!promptText && attachedFiles.length === 0) {
       alert("Vui lòng nhập nội dung yêu cầu soạn đề hoặc đính kèm tài liệu học tập!");
@@ -624,7 +637,6 @@ function setupHomeListeners(container) {
     }
 
     // Check Gemini API Key
-    const state = store.getState();
     let subjectKey = "default";
     const lowerText = (promptText + " " + attachedFiles.join(" ")).toLowerCase();
     
@@ -658,8 +670,8 @@ function startSimulatedAIGeneration(subjectKey, promptText) {
           <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="url(#logo-grad-ai)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
           <defs>
             <linearGradient id="logo-grad-ai" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#a78bfa" />
-              <stop offset="1" stop-color="#8b5cf6" />
+              <stop stop-color="#00f0ff" />
+              <stop offset="1" stop-color="#0072ff" />
             </linearGradient>
           </defs>
         </svg>
@@ -801,8 +813,8 @@ function startActualGeminiGeneration(apiKey, promptText, subjectKey) {
           <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="url(#logo-grad-ai)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
           <defs>
             <linearGradient id="logo-grad-ai" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#a78bfa" />
-              <stop offset="1" stop-color="#8b5cf6" />
+              <stop stop-color="#00f0ff" />
+              <stop offset="1" stop-color="#0072ff" />
             </linearGradient>
           </defs>
         </svg>
@@ -1676,26 +1688,36 @@ export function renderSettings(container) {
       <!-- Section 4: Gói cước tài khoản -->
       <div class="settings-section-card card">
         <h2 class="settings-section-title">Gói tài khoản sử dụng</h2>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Bạn đang sử dụng gói tài khoản <strong id="settingsActivePlan">${state.user.plan}</strong>.</p>
+        <div id="settingsPlanStatusContainer" style="margin-bottom: 16px;"></div>
         
         <div class="pricing-cards-container">
-          <div class="plan-card-option ${state.user.plan === 'Free' ? 'active' : ''}" data-plan-name="Free">
-            <span class="plan-option-name">Gói miễn phí (Free)</span>
-            <span class="plan-option-price">0 đ<span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">/ tháng</span></span>
+          <div class="plan-card-option" id="settingsPlanTrial" data-plan-name="Trial" style="display: none;">
+            <span class="plan-option-name">Gói dùng thử (Trial)</span>
+            <span class="plan-option-price">Miễn phí<span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">/ 7 ngày</span></span>
             <ul class="plan-option-features">
-              <li>✓ Tạo đề mẫu thông minh</li>
-              <li>✓ Kho câu hỏi tối đa 50 câu</li>
-              <li>✗ Không tích hợp API Gemini riêng</li>
+              <li>✓ Soạn đề AI không giới hạn</li>
+              <li>✓ Không cần cấu hình API Key</li>
+              <li>✓ Hạn sử dụng: 7 ngày</li>
             </ul>
           </div>
           
-          <div class="plan-card-option ${state.user.plan === 'Pro' ? 'active' : ''}" data-plan-name="Pro">
-            <span class="plan-option-name">Gói chuyên nghiệp (Pro)</span>
-            <span class="plan-option-price">199.000 đ<span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">/ tháng</span></span>
+          <div class="plan-card-option" id="settingsPlanFree" data-plan-name="Free">
+            <span class="plan-option-name">Gói miễn phí (Free)</span>
+            <span class="plan-option-price">0 đ<span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">/ tháng</span></span>
             <ul class="plan-option-features">
-              <li>✓ Sử dụng API Key riêng của bạn</li>
-              <li>✓ Tạo đề thi không giới hạn</li>
-              <li>✓ Hỗ trợ xuất file PDF chất lượng cao</li>
+              <li>✓ Quản lý lớp học & thư viện</li>
+              <li>✓ Tự cấu hình API Key riêng</li>
+              <li>✗ Khóa tính năng AI mặc định</li>
+            </ul>
+          </div>
+          
+          <div class="plan-card-option" id="settingsPlanPro" data-plan-name="Pro">
+            <span class="plan-option-name">Gói chuyên nghiệp (Pro)</span>
+            <span class="plan-option-price">99.000 đ<span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">/ tháng</span></span>
+            <ul class="plan-option-features">
+              <li>✓ Soạn đề AI không giới hạn</li>
+              <li>✓ Xuất file Word/PDF cao cấp</li>
+              <li>✓ Phê duyệt mở khóa tức thì</li>
             </ul>
           </div>
         </div>
@@ -1824,17 +1846,74 @@ export function renderSettings(container) {
     }
   });
 
+  // Update Plan UI states
+  const planStatusContainer = document.getElementById("settingsPlanStatusContainer");
+  const sub = store.getSubscriptionStatus();
+  
+  if (planStatusContainer) {
+    if (sub.plan === "Pro") {
+      planStatusContainer.innerHTML = `
+        <div class="plan-status-alert alert-pro" style="padding: 14px; border-radius: var(--radius-md); background-color: #e0f2fe; border: 1px solid #7dd3fc; color: #0369a1; font-size: 0.9rem; font-weight: 500; display: flex; flex-direction: column; gap: 4px;">
+          <span>🌟 Bạn đang sử dụng gói <strong>PRO Chuyên nghiệp</strong> (Còn <strong>${sub.daysRemaining} ngày</strong>).</span>
+          <span style="font-size: 0.78rem; opacity: 0.85;">Thời hạn đến ngày ${new Date(sub.expiresAt).toLocaleDateString('vi-VN')}.</span>
+        </div>
+      `;
+      const badge = document.getElementById("settingsPlanPro");
+      if (badge) badge.classList.add("active");
+    } else if (sub.plan === "Trial") {
+      planStatusContainer.innerHTML = `
+        <div class="plan-status-alert alert-trial" style="padding: 14px; border-radius: var(--radius-md); background-color: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; font-size: 0.9rem; font-weight: 500; display: flex; flex-direction: column; gap: 4px;">
+          <span>🎁 Bạn đang dùng thử <strong>7 ngày miễn phí</strong> (Còn <strong>${sub.daysRemaining} ngày</strong>).</span>
+          <span style="font-size: 0.78rem; opacity: 0.85; margin-bottom: 6px;">Thời hạn dùng thử đến ngày ${new Date(sub.expiresAt).toLocaleDateString('vi-VN')}.</span>
+          <button class="btn btn-primary btn-sm" id="btnSettingsUpgrade" style="align-self: flex-start; padding: 6px 12px; font-size: 0.8rem;">Nâng cấp Pro ngay</button>
+        </div>
+      `;
+      const trialBadge = document.getElementById("settingsPlanTrial");
+      if (trialBadge) {
+        trialBadge.style.display = "block";
+        trialBadge.classList.add("active");
+      }
+    } else {
+      const expiredText = sub.status === "trial_expired" ? "Hết hạn dùng thử" : "Hết hạn Pro";
+      planStatusContainer.innerHTML = `
+        <div class="plan-status-alert alert-free" style="padding: 14px; border-radius: var(--radius-md); background-color: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 0.9rem; font-weight: 500; display: flex; flex-direction: column; gap: 4px;">
+          <span>⚠️ Tài khoản của bạn là gói <strong>Miễn phí (${expiredText})</strong>.</span>
+          <span style="font-size: 0.78rem; opacity: 0.85; margin-bottom: 6px;">Các tính năng tạo đề thi bằng AI đã khóa (Trừ khi bạn điền API Key cá nhân bên trên).</span>
+          <button class="btn btn-primary btn-sm" id="btnSettingsUpgrade" style="align-self: flex-start; padding: 6px 12px; font-size: 0.8rem;">Nâng cấp gói PRO (99.000đ)</button>
+        </div>
+      `;
+      const badge = document.getElementById("settingsPlanFree");
+      if (badge) badge.classList.add("active");
+    }
+  }
+
+  // Settings Upgrade Button Click
+  const btnSettingsUpgrade = document.getElementById("btnSettingsUpgrade");
+  if (btnSettingsUpgrade) {
+    btnSettingsUpgrade.addEventListener("click", () => {
+      if (window.openUpgradeModal) window.openUpgradeModal();
+    });
+  }
+
   // Attach Plan change
   container.querySelectorAll(".plan-card-option").forEach(card => {
     card.addEventListener("click", () => {
       const planName = card.getAttribute("data-plan-name");
-      store.updateUser({ plan: planName });
-      
-      container.querySelectorAll(".plan-card-option").forEach(c => c.classList.remove("active"));
-      card.classList.add("active");
-      
-      document.getElementById("settingsActivePlan").innerText = planName;
-      window.refreshUserProfileWidget();
+      if (planName === "Pro") {
+        if (window.openUpgradeModal) window.openUpgradeModal();
+      } else if (planName === "Free") {
+        if (confirm("Chuyển về gói Miễn phí? Các tính năng AI sẽ bị giới hạn cho đến khi nâng cấp hoặc điền API Key riêng.")) {
+          // Force free plan simulator
+          const activeState = store.getState();
+          activeState.user.plan = "Free";
+          // Simulate account created 10 days ago to expire trial
+          activeState.user.createdAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+          store.saveState(activeState);
+          
+          alert("Đã chuyển đổi tài khoản về gói Miễn phí (Hết hạn dùng thử) để bạn test thử!");
+          location.reload();
+        }
+      }
     });
   });
 
