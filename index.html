@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyaQuiz.ai - Nền tảng tạo đề trắc nghiệm bằng AI</title>
+  <!-- Google Fonts: Inter and Hanken Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="index.css" />
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <!-- Auth Gate Container (Hidden when logged in) -->
+  <div id="authContainer" class="auth-viewport" style="display: none;"></div>
+
+  <!-- Main Dashboard App Container (Hidden when logged out) -->
+  <div class="app-container" id="appContainer" style="display: none;">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-area">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="url(#logo-grad)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="logo-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#a78bfa" />
+                <stop offset="1" stop-color="#8b5cf6" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="brand-name">MyaQuiz<span class="brand-dot">.ai</span></span>
+        </div>
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle Sidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <span class="section-title">Menu</span>
+          <ul class="nav-list">
+            <li class="nav-item active" data-view="home">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span>Trang chủ</span>
+            </li>
+            <li class="nav-item" data-view="library">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3a1 1 0 0 1 1-1h15v20H5a1 1 0 0 1-1-1z"/></svg>
+              <span>Thư viện của bạn</span>
+            </li>
+            <li class="nav-item" data-view="exams">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <span>Đề thi</span>
+            </li>
+            <li class="nav-item" data-view="qbank">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+              <span>Ngân hàng câu hỏi</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <div class="section-title-row">
+            <span class="section-title">Lớp học</span>
+          </div>
+          <div class="classes-list" id="sidebarClassesList">
+            <!-- Classes loaded dynamically -->
+            <p class="empty-list-text">Chưa có lớp học nào</p>
+          </div>
+          <ul class="nav-list secondary-list">
+            <li class="nav-action-item" id="btnAddClass">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Thêm lớp học</span>
+            </li>
+            <li class="nav-action-item" id="btnJoinClass">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              <span>Tham gia lớp học</span>
+            </li>
+            <li class="nav-action-item" id="btnJoinCampus">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>
+              <span>Gia nhập Campus</span>
+            </li>
+            <li class="nav-action-item" id="btnFindCampus">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>Tìm Campus</span>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <ul class="nav-list footer-list">
+          <li class="nav-item" data-view="guide">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Hướng dẫn</span>
+          </li>
+          <li class="nav-item" data-view="settings">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.5 1z"/></svg>
+            <span>Cài đặt</span>
+          </li>
+          <li class="nav-item" id="btnSidebarLogout">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Đăng xuất</span>
+          </li>
+        </ul>
+        
+        <div class="user-profile-widget" id="userProfileWidget">
+          <div class="avatar-area">
+            <div class="avatar" id="userAvatar">N</div>
+          </div>
+          <div class="user-info">
+            <div class="user-name-row">
+              <span class="user-display-name" id="userDisplayName">Thìn Nguyễn</span>
+              <span class="user-badge" id="userPlanBadge">Free</span>
+            </div>
+            <span class="user-email" id="userDisplayEmail">dalk2000vtp@gmail.com</span>
+          </div>
+          <svg class="dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Mobile header -->
+      <header class="mobile-header">
+        <button class="menu-hamburger" id="menuHamburger" aria-label="Open Menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="mobile-logo-text">MyaQuiz.ai</span>
+        <div class="mobile-avatar" id="mobileUserAvatar">N</div>
+      </header>
+
+      <!-- Dynamic View Container -->
+      <div class="view-viewport" id="viewViewport">
+        <!-- Views will load here dynamically via JavaScript -->
+        <div class="loading-spinner-container">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Shared Modals -->
+  <!-- Create Class Modal -->
+  <div class="modal-backdrop" id="modalCreateClass">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Tạo lớp học mới</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="newClassName">Tên lớp học <span class="required">*</span></label>
+          <input type="text" id="newClassName" placeholder="Ví dụ: Lớp 10A1 - Toán học" required />
+        </div>
+        <div class="form-group">
+          <label for="newClassSubject">Môn học</label>
+          <input type="text" id="newClassSubject" placeholder="Toán, Vật lý, Tiếng Anh..." />
+        </div>
+        <div class="form-group">
+          <label for="newClassDesc">Mô tả ngắn</label>
+          <textarea id="newClassDesc" rows="3" placeholder="Mô tả về lớp học hoặc thời gian biểu..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-cancel-btn">Hủy</button>
+        <button class="btn btn-primary" id="btnSubmitCreateClass">Tạo lớp</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Class Modal -->
+  <div class="modal-backdrop" id="modalJoinClass">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Tham gia lớp học</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="classCodeInput">Mã lớp học <span class="required">*</span></label>
+          <input type="text" id="classCodeInput" placeholder="Nhập mã lớp (Ví dụ: MT789X)" required />
+          <p class="form-hint">Yêu cầu giáo viên của bạn cung cấp mã lớp để tham gia.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary modal-cancel-btn">Hủy</button>
+        <button class="btn btn-primary" id="btnSubmitJoinClass">Tham gia</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JS -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
