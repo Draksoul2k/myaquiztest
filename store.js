@@ -10,7 +10,7 @@ const DEFAULT_STATE = {
     plan: "Free",
     theme: "light",
     geminiApiKey: "",
-    googleClientId: "",
+    googleClientId: "591954709167-dgup0n03seg81grv7ht3t4o5m9osgd0u.apps.googleusercontent.com",
     avatarUrl: ""
   },
   // Registered users for email/password auth simulation
@@ -133,7 +133,13 @@ export function getState() {
     saveState(DEFAULT_STATE);
     return JSON.parse(JSON.stringify(DEFAULT_STATE));
   }
-  return JSON.parse(data);
+  const state = JSON.parse(data);
+  // Auto-sync googleClientId from DEFAULT_STATE if empty in active state
+  if (DEFAULT_STATE.user.googleClientId && !state.user.googleClientId) {
+    state.user.googleClientId = DEFAULT_STATE.user.googleClientId;
+    saveState(state);
+  }
+  return state;
 }
 
 // Save state
