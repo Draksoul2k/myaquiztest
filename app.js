@@ -18,16 +18,31 @@ const modalJoinClass = document.getElementById("modalJoinClass");
 // Active view tracker
 let activeView = "home";
 
+// Apply Theme to DOM
+function applyTheme() {
+  const state = store.getState();
+  const theme = state.user.theme || "light";
+  
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else if (theme === "light") {
+    document.documentElement.removeAttribute("data-theme");
+  } else if (theme === "auto") {
+    const hour = new Date().getHours();
+    if (hour >= 18 || hour < 6) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  }
+}
+
 // Initialize Application
 function init() {
   const state = store.getState();
 
   // 1. Initialize theme
-  if (state.user.theme === "dark") {
-    document.documentElement.setAttribute("data-theme", "dark");
-  } else {
-    document.documentElement.removeAttribute("data-theme");
-  }
+  applyTheme();
 
   // 2. Set up global authentication and rendering hooks
   window.onAuthSuccess = () => {
@@ -110,6 +125,14 @@ function init() {
   setupMobileHandlers();
   setupAuthLogout();
   initAmbientCanvas();
+
+  // 6. Periodically check auto theme
+  setInterval(() => {
+    const activeState = store.getState();
+    if (activeState.user && activeState.user.theme === "auto") {
+      applyTheme();
+    }
+  }, 15000);
 }
 
 // Render dynamic view

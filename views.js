@@ -1673,15 +1673,18 @@ export function renderSettings(container) {
       <div class="settings-section-card card">
         <h2 class="settings-section-title">Cài đặt giao diện</h2>
         
-        <div class="theme-toggle-row">
+        <div class="theme-toggle-row" style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
           <div>
-            <h4 style="font-size: 0.95rem; font-weight: 600;">Giao diện Tối (Dark Mode)</h4>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Chuyển đổi giao diện sang tông màu tối giúp bảo vệ mắt vào ban đêm.</p>
+            <h4 style="font-size: 0.95rem; font-weight: 600;">Chế độ giao diện</h4>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Chọn giao diện sáng, tối hoặc tự động chuyển đổi theo thời gian thực.</p>
           </div>
-          <label class="switch">
-            <input type="checkbox" id="settingThemeSwitch" ${state.user.theme === "dark" ? "checked" : ""}>
-            <span class="slider"></span>
-          </label>
+          <div class="composer-select-wrapper">
+            <select id="settingThemeSelect" class="composer-select" style="min-width: 140px; padding: 10px 32px 10px 16px;">
+              <option value="light" ${state.user.theme === "light" ? "selected" : ""}>☀️ Sáng</option>
+              <option value="dark" ${state.user.theme === "dark" ? "selected" : ""}>🌙 Tối</option>
+              <option value="auto" ${state.user.theme === "auto" ? "selected" : ""}>⏰ Tự động</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -1831,20 +1834,28 @@ export function renderSettings(container) {
     location.reload();
   });
 
-  // Attach Dark mode toggle
-  const themeSwitch = document.getElementById("settingThemeSwitch");
-  themeSwitch.addEventListener("change", () => {
-    const isDark = themeSwitch.checked;
-    const theme = isDark ? "dark" : "light";
-    
-    store.updateUser({ theme });
-    
-    if (isDark) {
-      document.documentElement.setAttribute("data-theme", "dark");
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-    }
-  });
+  // Attach Theme change dropdown
+  const themeSelect = document.getElementById("settingThemeSelect");
+  if (themeSelect) {
+    themeSelect.addEventListener("change", () => {
+      const theme = themeSelect.value;
+      store.updateUser({ theme });
+      
+      // Apply theme immediately
+      if (theme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      } else if (theme === "light") {
+        document.documentElement.removeAttribute("data-theme");
+      } else if (theme === "auto") {
+        const hour = new Date().getHours();
+        if (hour >= 18 || hour < 6) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+        }
+      }
+    });
+  }
 
   // Update Plan UI states
   const planStatusContainer = document.getElementById("settingsPlanStatusContainer");
