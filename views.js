@@ -165,12 +165,12 @@ export function renderAuthScreen(container) {
           
           <div class="form-group" style="margin-bottom: 0;">
             <label for="authEmail">Địa chỉ Email <span class="required">*</span></label>
-            <input type="email" id="authEmail" placeholder="name@example.com" value="dalk2000vtp@gmail.com" required />
+            <input type="email" id="authEmail" placeholder="name@example.com" value="" required />
           </div>
 
           <div class="form-group" style="margin-bottom: 0;">
             <label for="authPassword">Mật khẩu <span class="required">*</span></label>
-            <input type="password" id="authPassword" placeholder="Nhập mật khẩu" value="123" required />
+            <input type="password" id="authPassword" placeholder="Nhập mật khẩu" value="" required />
           </div>
 
           <button type="submit" class="btn btn-primary" style="padding: 12px; margin-top: 10px; font-size: 0.95rem;">
