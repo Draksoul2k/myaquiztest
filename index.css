@@ -107,10 +107,10 @@ input, textarea, button {
    ========================================================================== */
 .auth-viewport {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  padding: 24px 16px;
+  overflow-y: auto;
   background: radial-gradient(circle at 10% 20%, rgba(243, 232, 255, 0.7) 0%, rgba(248, 250, 252, 1) 90%);
 }
 
@@ -129,6 +129,7 @@ input, textarea, button {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  margin: auto;
 }
 
 .auth-header {
@@ -1771,6 +1772,9 @@ input:checked + .slider:before {
   .sidebar {
     transform: translateX(-100%);
     box-shadow: 0 0 20px rgba(0,0,0,0.15);
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
   }
   
   .sidebar.show {
@@ -1806,6 +1810,11 @@ input:checked + .slider:before {
   
   .pricing-cards-container {
     grid-template-columns: 1fr;
+  }
+
+  .auth-card {
+    padding: 28px 20px;
+    gap: 20px;
   }
   
   /* Prevent iOS Safari auto-zoom on input focus */
