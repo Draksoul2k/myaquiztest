@@ -2256,5 +2256,18 @@ input:checked + .slider:before {
   pointer-events: none;
 }
 
+/* Sidebar Mobile Spacer */
+.sidebar-mobile-spacer {
+  display: none;
+  height: 90px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .sidebar-mobile-spacer {
+    display: block !important;
+  }
+}
+
 
 
