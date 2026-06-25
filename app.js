@@ -159,11 +159,21 @@ function renderUserProfileWidget() {
   const userAvatar = document.getElementById("userAvatar");
   const mobileAvatar = document.getElementById("mobileUserAvatar");
 
+  // Mobile Dropdown elements
+  const dropdownName = document.getElementById("dropdownUserName");
+  const dropdownEmail = document.getElementById("dropdownUserEmail");
+  const dropdownPlanBadge = document.getElementById("dropdownPlanBadge");
+  const dropdownExpireDate = document.getElementById("dropdownExpireDate");
+  const dropdownExpireRow = document.getElementById("dropdownExpireRow");
+
   const initial = state.user.name ? state.user.name.substring(0, 1).toUpperCase() : "U";
 
   if (displayName) displayName.innerText = state.user.name;
   if (displayEmail) displayEmail.innerText = state.user.email;
   
+  if (dropdownName) dropdownName.innerText = state.user.name;
+  if (dropdownEmail) dropdownEmail.innerText = state.user.email;
+
   if (state.user.avatarUrl) {
     if (userAvatar) userAvatar.innerHTML = `<img src="${state.user.avatarUrl}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
     if (mobileAvatar) mobileAvatar.innerHTML = `<img src="${state.user.avatarUrl}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
@@ -172,17 +182,52 @@ function renderUserProfileWidget() {
     if (mobileAvatar) mobileAvatar.innerText = initial;
   }
 
+  const sub = store.getSubscriptionStatus();
+
+  // Sidebar badge update
   if (planBadge) {
-    const sub = store.getSubscriptionStatus();
     if (sub.plan === "Pro") {
-      planBadge.innerText = "Pro";
+      planBadge.innerText = `Pro (Còn ${sub.daysRemaining} ngày)`;
       planBadge.className = "user-badge pro";
     } else if (sub.plan === "Trial") {
-      planBadge.innerText = "Dùng thử";
+      planBadge.innerText = `Dùng thử (Còn ${sub.daysRemaining} ngày)`;
       planBadge.className = "user-badge trial";
     } else {
       planBadge.innerText = "Miễn phí";
       planBadge.className = "user-badge";
+    }
+  }
+
+  // Mobile Dropdown Badge & Expiration Update
+  if (dropdownPlanBadge) {
+    if (sub.plan === "Pro") {
+      dropdownPlanBadge.innerText = "PRO";
+      dropdownPlanBadge.className = "dropdown-item-badge pro";
+    } else if (sub.plan === "Trial") {
+      dropdownPlanBadge.innerText = "Dùng thử";
+      dropdownPlanBadge.className = "dropdown-item-badge trial";
+    } else {
+      dropdownPlanBadge.innerText = "Miễn phí";
+      dropdownPlanBadge.className = "dropdown-item-badge free";
+    }
+  }
+
+  if (dropdownExpireDate) {
+    if (sub.plan === "Pro") {
+      dropdownExpireDate.innerText = `Còn ${sub.daysRemaining} ngày`;
+      if (dropdownExpireRow) dropdownExpireRow.style.display = "flex";
+    } else if (sub.plan === "Trial") {
+      dropdownExpireDate.innerText = `Còn ${sub.daysRemaining} ngày`;
+      if (dropdownExpireRow) dropdownExpireRow.style.display = "flex";
+    } else {
+      if (sub.status === "trial_expired") {
+        dropdownExpireDate.innerText = "Hết hạn dùng thử";
+      } else if (sub.status === "pro_expired") {
+        dropdownExpireDate.innerText = "Hết hạn gói Pro";
+      } else {
+        dropdownExpireDate.innerText = "Chưa kích hoạt";
+      }
+      if (dropdownExpireRow) dropdownExpireRow.style.display = "flex";
     }
   }
 }
@@ -236,6 +281,7 @@ function setupNavigation() {
       // Close sidebar on mobile
       if (sidebar && sidebar.classList.contains("show")) {
         sidebar.classList.remove("show");
+        document.body.classList.remove("sidebar-open");
       }
     });
   });
@@ -413,16 +459,74 @@ function clearModalInputs() {
 function setupMobileHandlers() {
   const menuHamburger = document.getElementById("menuHamburger");
   const sidebarToggle = document.getElementById("sidebarToggle");
+  const mobileUserAvatar = document.getElementById("mobileUserAvatar");
+  const mobileAvatarDropdown = document.getElementById("mobileAvatarDropdown");
+  const btnDropdownSettings = document.getElementById("btnDropdownSettings");
+  const btnDropdownLogout = document.getElementById("btnDropdownLogout");
 
   if (menuHamburger) {
-    menuHamburger.addEventListener("click", () => {
+    menuHamburger.addEventListener("click", (e) => {
+      e.stopPropagation();
       sidebar.classList.add("show");
+      document.body.classList.add("sidebar-open");
     });
   }
 
   if (sidebarToggle) {
-    sidebarToggle.addEventListener("click", () => {
+    sidebarToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
       sidebar.classList.remove("show");
+      document.body.classList.remove("sidebar-open");
+    });
+  }
+
+  // Toggle mobile avatar dropdown click
+  if (mobileUserAvatar && mobileAvatarDropdown) {
+    mobileUserAvatar.addEventListener("click", (e) => {
+      e.stopPropagation();
+      mobileAvatarDropdown.classList.toggle("show");
+    });
+  }
+
+  // Close dropdown or sidebar when clicking anywhere outside
+  window.addEventListener("click", (e) => {
+    if (mobileAvatarDropdown && mobileAvatarDropdown.classList.contains("show")) {
+      if (!mobileAvatarDropdown.contains(e.target) && e.target !== mobileUserAvatar) {
+        mobileAvatarDropdown.classList.remove("show");
+      }
+    }
+
+    if (sidebar && sidebar.classList.contains("show")) {
+      if (!sidebar.contains(e.target) && e.target !== menuHamburger) {
+        sidebar.classList.remove("show");
+        document.body.classList.remove("sidebar-open");
+      }
+    }
+  });
+
+  // Mobile dropdown navigation routes to settings
+  if (btnDropdownSettings) {
+    btnDropdownSettings.addEventListener("click", () => {
+      if (mobileAvatarDropdown) mobileAvatarDropdown.classList.remove("show");
+      
+      navItems.forEach(n => {
+        if (n.getAttribute("data-view") === "settings") n.classList.add("active");
+        else n.classList.remove("active");
+      });
+      activeView = "settings";
+      renderView("settings");
+    });
+  }
+
+  // Mobile dropdown logout
+  if (btnDropdownLogout) {
+    btnDropdownLogout.addEventListener("click", () => {
+      if (mobileAvatarDropdown) mobileAvatarDropdown.classList.remove("show");
+      
+      if (confirm("Bạn có muốn đăng xuất khỏi MyaQuiz không?")) {
+        store.logout();
+        window.onLogout();
+      }
     });
   }
 }
