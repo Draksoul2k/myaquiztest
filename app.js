@@ -1,5 +1,5 @@
-import * as store from './store.js';
-import * as views from './views.js';
+import * as store from './store.js?v=1.2';
+import * as views from './views.js?v=1.2';
 
 // DOM containers
 const appContainer = document.getElementById("appContainer");
