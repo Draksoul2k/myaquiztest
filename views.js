@@ -173,6 +173,26 @@ export function renderAuthScreen(container) {
             <input type="password" id="authPassword" placeholder="Nhập mật khẩu" value="" required />
           </div>
 
+          <div class="form-group" style="margin-bottom: 12px; margin-top: 10px;">
+            <label style="margin-bottom: 6px;">Vai trò đăng nhập <span class="required">*</span></label>
+            <div style="display: flex; gap: 12px; width: 100%;">
+              <label id="roleTeacherCard" style="flex: 1; border: 2px solid hsl(var(--primary)); border-radius: var(--radius-md); padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-card); transition: all var(--transition-fast);" class="role-selector-card">
+                <input type="radio" name="authRole" value="teacher" checked style="cursor: pointer;" />
+                <div style="display: flex; flex-direction: column;">
+                  <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">Giáo viên</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Soạn đề, tải đáp án</span>
+                </div>
+              </label>
+              <label id="roleStudentCard" style="flex: 1; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-card); transition: all var(--transition-fast);" class="role-selector-card">
+                <input type="radio" name="authRole" value="student" style="cursor: pointer;" />
+                <div style="display: flex; flex-direction: column;">
+                  <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">Học sinh</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Làm đề ôn tập, ẩn giải thích câu đúng</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <button type="submit" class="btn btn-primary" style="padding: 12px; margin-top: 10px; font-size: 0.95rem;">
             ${activeTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </button>
@@ -205,14 +225,36 @@ export function renderAuthScreen(container) {
       render();
     });
 
+    // Setup change listeners for role selectors to highlight the active card
+    const roleRadios = container.querySelectorAll('input[name="authRole"]');
+    roleRadios.forEach(radio => {
+      radio.addEventListener("change", () => {
+        const teacherCard = document.getElementById("roleTeacherCard");
+        const studentCard = document.getElementById("roleStudentCard");
+        if (radio.value === "teacher") {
+          teacherCard.style.borderColor = "hsl(var(--primary))";
+          teacherCard.style.borderWidth = "2px";
+          studentCard.style.borderColor = "var(--border-color)";
+          studentCard.style.borderWidth = "1px";
+        } else {
+          studentCard.style.borderColor = "hsl(var(--primary))";
+          studentCard.style.borderWidth = "2px";
+          teacherCard.style.borderColor = "var(--border-color)";
+          teacherCard.style.borderWidth = "1px";
+        }
+      });
+    });
+
     // Form submit logic
     document.getElementById("authSubmitForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const email = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value;
+      const roleEl = container.querySelector('input[name="authRole"]:checked');
+      const role = roleEl ? roleEl.value : "teacher";
 
       if (activeTab === "login") {
-        const success = store.login(email, password);
+        const success = store.login(email, password, role);
         if (success) {
           window.onAuthSuccess();
         } else {
@@ -220,7 +262,7 @@ export function renderAuthScreen(container) {
         }
       } else {
         const name = document.getElementById("authName").value.trim();
-        const success = store.register(name, email, password);
+        const success = store.register(name, email, password, role);
         if (success) {
           alert("Đăng ký thành công!");
           window.onAuthSuccess();
@@ -240,7 +282,9 @@ export function renderAuthScreen(container) {
             callback: (response) => {
               const decoded = decodeJwt(response.credential);
               if (decoded) {
-                store.loginGoogle(decoded.email, decoded.name, decoded.picture);
+                const roleEl = container.querySelector('input[name="authRole"]:checked');
+                const role = roleEl ? roleEl.value : "teacher";
+                store.loginGoogle(decoded.email, decoded.name, decoded.picture, role);
                 window.onAuthSuccess();
               }
             }
@@ -270,7 +314,9 @@ export function renderAuthScreen(container) {
       if (!email || !email.trim()) return;
       let name = prompt("Nhập Họ & Tên của bạn:");
       if (!name || !name.trim()) name = email.split('@')[0];
-      store.loginGoogle(email.trim(), name.trim());
+      const roleEl = container.querySelector('input[name="authRole"]:checked');
+      const role = roleEl ? roleEl.value : "teacher";
+      store.loginGoogle(email.trim(), name.trim(), "", role);
       window.onAuthSuccess();
     });
   }
@@ -312,6 +358,7 @@ export function renderHome(container) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             <span>Đính kèm</span>
           </button>
+          <input type="file" id="composerFileInput" accept=".txt,.md,.pdf,.docx,image/*" multiple style="display: none;">
         </div>
         <button class="btn btn-primary" id="btnComposerSubmit">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polyline points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -569,22 +616,58 @@ function setupHomeListeners(container) {
     });
   });
 
-  // File Attachment simulation
+  // File Attachment handling
   const btnAttach = document.getElementById("btnComposerAttach");
+  const fileInput = document.getElementById("composerFileInput");
   const attachedRow = document.getElementById("attachedFilesRow");
   
   btnAttach.addEventListener("click", () => {
-    const mockFiles = [
-      "baigiang_daoham_lop12.pdf", 
-      "baitap_generation_gap_unit1.docx", 
-      "lythuyet_daodong_vatly12.pdf"
-    ];
-    // Pick random file
-    const picked = mockFiles[Math.floor(Math.random() * mockFiles.length)];
-    if (!attachedFiles.includes(picked)) {
-      attachedFiles.push(picked);
-      updateAttachedFilesUI();
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    // Show spinner in attached files list while reading
+    attachedRow.style.display = "flex";
+    attachedRow.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted); padding: 6px;"><div class="spinner" style="width:16px; height:16px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:6px;"></div> Đang đọc tệp tin đính kèm...</span>`;
+
+    for (const file of files) {
+      if (attachedFiles.some(f => f.name === file.name)) continue;
+      
+      const fileData = {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        textContent: "",
+        isImage: file.type.startsWith("image/"),
+        base64Data: ""
+      };
+      
+      try {
+        if (fileData.isImage) {
+          const base64DataUrl = await readFileAsDataURL(file);
+          fileData.base64Data = base64DataUrl.split(',')[1];
+        } else if (file.name.endsWith(".pdf")) {
+          const arrayBuffer = await readFileAsArrayBuffer(file);
+          fileData.textContent = await extractTextFromPDF(arrayBuffer);
+        } else if (file.name.endsWith(".docx")) {
+          const arrayBuffer = await readFileAsArrayBuffer(file);
+          fileData.textContent = await extractTextFromDocx(arrayBuffer);
+        } else {
+          fileData.textContent = await readFileAsText(file);
+        }
+        
+        attachedFiles.push(fileData);
+      } catch (err) {
+        console.error("Lỗi đọc file:", err);
+        alert(`Không thể đọc file ${file.name}: ${err.message || err}`);
+      }
     }
+    
+    updateAttachedFilesUI();
+    fileInput.value = "";
   });
 
   function updateAttachedFilesUI() {
@@ -593,16 +676,25 @@ function setupHomeListeners(container) {
       attachedRow.innerHTML = "";
     } else {
       attachedRow.style.display = "flex";
-      attachedRow.innerHTML = attachedFiles.map((file, idx) => `
-        <div class="attached-file-badge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <span>${file}</span>
-          <button data-idx="${idx}" class="btn-remove-attachment">&times;</button>
-        </div>
-      `).join('');
+      attachedRow.innerHTML = attachedFiles.map((file, idx) => {
+        const sizeStr = file.size > 1024 * 1024 
+          ? (file.size / (1024 * 1024)).toFixed(1) + " MB" 
+          : (file.size / 1024).toFixed(0) + " KB";
+        const icon = file.isImage 
+          ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+        return `
+          <div class="attached-file-badge">
+            ${icon}
+            <span title="${file.name}">${file.name} (${sizeStr})</span>
+            <button data-idx="${idx}" class="btn-remove-attachment" type="button">&times;</button>
+          </div>
+        `;
+      }).join('');
       
       attachedRow.querySelectorAll(".btn-remove-attachment").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const idx = parseInt(btn.getAttribute("data-idx"), 10);
           attachedFiles.splice(idx, 1);
           updateAttachedFilesUI();
@@ -636,9 +728,9 @@ function setupHomeListeners(container) {
       return;
     }
 
-    // Check Gemini API Key
+    // Determine subject key based on text and file names
     let subjectKey = "default";
-    const lowerText = (promptText + " " + attachedFiles.join(" ")).toLowerCase();
+    const lowerText = (promptText + " " + attachedFiles.map(f => f.name).join(" ")).toLowerCase();
     
     if (lowerText.includes("toán") || lowerText.includes("math") || lowerText.includes("đạo hàm") || lowerText.includes("tích phân") || lowerText.includes("giải tích")) {
       subjectKey = "toan";
@@ -648,9 +740,20 @@ function setupHomeListeners(container) {
       subjectKey = "vatly";
     }
 
+    // Extracted documents text context
+    let documentContext = "";
+    attachedFiles.forEach(file => {
+      if (!file.isImage && file.textContent) {
+        documentContext += `\n\n--- NỘI DUNG TÀI LIỆU ĐÍNH KÈM: ${file.name} ---\n${file.textContent}\n--- HẾT TÀI LIỆU ---`;
+      }
+    });
+
+    // Merge document content into request text
+    const fullRequestText = promptText + documentContext;
+
     if (state.user.geminiApiKey) {
-      // Call ACTUAL Gemini API
-      startActualGeminiGeneration(state.user.geminiApiKey, promptText, subjectKey);
+      // Call ACTUAL Gemini API, pass request text and attached files
+      startActualGeminiGeneration(state.user.geminiApiKey, fullRequestText, subjectKey, attachedFiles);
     } else {
       // Fallback with warning
       alert("Bạn chưa cấu hình Gemini API Key thật.\nỨng dụng sẽ tự động tải bộ câu hỏi mẫu minh họa để bạn trải nghiệm. Để tạo câu hỏi thật theo đúng ý, vui lòng vào tab 'Cài đặt' điền Gemini API Key (miễn phí) nhé!");
@@ -707,10 +810,74 @@ function startSimulatedAIGeneration(subjectKey, promptText) {
       setTimeout(runStep, 1000 + Math.random() * 800); // Random delay
     } else {
       // Finished! Create exam, clear inputs, remove overlay
-      const template = MOCK_EXAM_TEMPLATES[subjectKey];
-      const examTitle = promptText.length > 40 
-        ? `Đề thi tạo bởi AI: ${promptText.substring(0, 40)}...`
-        : `Đề thi tạo bởi AI: ${promptText}`;
+      const template = MOCK_EXAM_TEMPLATES[subjectKey] || MOCK_EXAM_TEMPLATES.default;
+      
+      // Determine subject name
+      const subjectName = subjectKey === "toan" ? "Toán" : subjectKey === "tienganh" ? "Tiếng Anh" : subjectKey === "vatly" ? "Vật lý" : "Tổng hợp";
+      
+      // Parse grade
+      let gradeVal = null;
+      const gradeMatch = promptText.match(/lớp\s*([1-9]|1[0-2])/i) || promptText.match(/grade\s*([1-9]|1[0-2])/i);
+      if (gradeMatch) {
+        gradeVal = parseInt(gradeMatch[1], 10);
+      }
+      
+      // Determine type: "Đề thi" vs "Đề kiểm tra"
+      let examType = "Đề kiểm tra";
+      const lowerPrompt = promptText.toLowerCase();
+      if (lowerPrompt.includes("thi học kì") || lowerPrompt.includes("thi học kỳ") || lowerPrompt.includes("thi thử") || (lowerPrompt.includes("đề thi") && !lowerPrompt.includes("đề kiểm tra"))) {
+        examType = "Đề thi";
+      }
+      
+      // Determine duration
+      let duration = 15;
+      const timeMatch = promptText.match(/(\d+)\s*(phút|minute|pt)/i);
+      if (timeMatch) {
+        duration = parseInt(timeMatch[1], 10);
+      } else {
+        if (lowerPrompt.includes("90 phút")) duration = 90;
+        else if (lowerPrompt.includes("45 phút")) duration = 45;
+      }
+      
+      // Parse quantity / questionsCount
+      let questionCount = 10;
+      const qCountMatch = promptText.match(/(\d+)\s*(câu hỏi|câu|question)/i);
+      if (qCountMatch) {
+        questionCount = parseInt(qCountMatch[1], 10);
+      } else {
+        if (duration === 90) questionCount = 50;
+        else if (duration === 45) questionCount = 25;
+      }
+      
+      // Determine difficulty
+      let difficulty = "Trung bình";
+      if (lowerPrompt.includes("khó") || lowerPrompt.includes("nâng cao") || lowerPrompt.includes("giỏi")) {
+        difficulty = "Khó";
+      } else if (lowerPrompt.includes("dễ") || lowerPrompt.includes("cơ bản")) {
+        difficulty = "Dễ";
+      }
+
+      // Format title: "Đề thi môn Toán Lớp 5 (15 phút)"
+      let examTitle = `${examType} môn ${subjectName}`;
+      if (gradeVal) {
+        examTitle += ` Lớp ${gradeVal}`;
+      }
+      examTitle += ` (${duration} phút)`;
+
+      // Clone/repeat template questions to match requested count
+      let finalQuestions = [];
+      const templateQuestions = template.questions || [];
+      if (templateQuestions.length > 0) {
+        for (let i = 0; i < questionCount; i++) {
+          const originalQ = templateQuestions[i % templateQuestions.length];
+          finalQuestions.push({
+            text: `(Mô phỏng Câu ${i + 1}) ${originalQ.text}`,
+            options: [...originalQ.options],
+            answer: originalQ.answer,
+            explanation: originalQ.explanation
+          });
+        }
+      }
 
       const newExam = store.addExam({
         title: examTitle,
@@ -751,7 +918,7 @@ async function callGeminiAPI(apiKey, promptText, config = {}) {
       const url = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${apiKey}`;
       const payload = {
         contents: [{
-          parts: [{ text: promptText }]
+          parts: Array.isArray(promptText) ? promptText : [{ text: promptText }]
         }]
       };
       if (Object.keys(config).length > 0) {
@@ -802,7 +969,7 @@ async function callGeminiAPI(apiKey, promptText, config = {}) {
   }
 }
 
-function startActualGeminiGeneration(apiKey, promptText, subjectKey) {
+export function startActualGeminiGeneration(apiKey, promptText, subjectKey, files = []) {
   // Create overlay
   const overlay = document.createElement("div");
   overlay.className = "ai-processing-overlay";
@@ -832,7 +999,7 @@ function startActualGeminiGeneration(apiKey, promptText, subjectKey) {
   const progressFill = document.getElementById("aiProgressFill");
 
   // Construct Gemini System Instruct Prompt
-  const finalPrompt = `Bạn là một chuyên gia khảo thí giáo dục hàng đầu. Hãy soạn một bộ đề thi trắc nghiệm chi tiết dựa trên nội dung/yêu cầu sau từ người dùng: "${promptText}".
+  const finalPromptText = `Bạn là một chuyên gia khảo thí giáo dục hàng đầu. Hãy soạn một bộ đề thi trắc nghiệm chi tiết dựa trên nội dung/yêu cầu sau từ người dùng: "${promptText}".
 YÊU CẦU QUAN TRỌNG VỀ ĐỘ CHÍNH XÁC KIẾN THỨC:
 1. Tuyệt đối không được tự bịa đặt (hallucinate) thông tin hay kiến thức giả. Tất cả câu hỏi, phương án lựa chọn và giải thích đáp án phải chính xác 100% về mặt khoa học, lịch sử, thực tế đời sống hoặc logic học thuật.
 2. Nếu kiến thức không chắc chắn hoặc không có câu trả lời chuẩn xác được giới khoa học/giáo dục công nhận rộng rãi, tuyệt đối không đưa vào đề thi.
@@ -848,11 +1015,28 @@ Mỗi phần tử (Object) trong mảng phải có cấu trúc chính xác như 
 }
 Hãy viết toàn bộ câu hỏi và phương án, lời giải bằng Tiếng Việt.`;
 
+  // Build multimodal parts if images are attached
+  let promptPayload = finalPromptText;
+  const images = files.filter(f => f.isImage);
+  
+  if (images.length > 0) {
+    promptPayload = [];
+    promptPayload.push({ text: finalPromptText });
+    images.forEach(img => {
+      promptPayload.push({
+        inlineData: {
+          mimeType: img.type,
+          data: img.base64Data
+        }
+      });
+    });
+  }
+
   // Start API request
   progressFill.style.width = "40%";
   stepText.innerText = "Gemini AI đang tư duy và tạo các câu hỏi trắc nghiệm...";
 
-  callGeminiAPI(apiKey, finalPrompt, { 
+  callGeminiAPI(apiKey, promptPayload, { 
     responseMimeType: "application/json",
     temperature: 0.2 
   })
@@ -875,11 +1059,55 @@ Hãy viết toàn bộ câu hỏi và phương án, lời giải bằng Tiếng 
 
     // Determine subject name
     const subjectName = subjectKey === "toan" ? "Toán" : subjectKey === "tienganh" ? "Tiếng Anh" : subjectKey === "vatly" ? "Vật lý" : "Tổng hợp";
-    const examTitle = promptText.length > 50 ? `Đề thi AI: ${promptText.substring(0, 50)}...` : `Đề thi AI: ${promptText}`;
+    
+    // Parse grade
+    let gradeVal = null;
+    const gradeMatch = promptText.match(/lớp\s*([1-9]|1[0-2])/i) || promptText.match(/grade\s*([1-9]|1[0-2])/i);
+    if (gradeMatch) {
+      gradeVal = parseInt(gradeMatch[1], 10);
+    }
+    
+    // Determine type: "Đề thi" vs "Đề kiểm tra"
+    let examType = "Đề kiểm tra";
+    const lowerPrompt = promptText.toLowerCase();
+    if (lowerPrompt.includes("đề thi") || lowerPrompt.includes("thi học kì") || lowerPrompt.includes("thi thử") || questions.length >= 20) {
+      examType = "Đề thi";
+    }
+    
+    // Determine duration
+    let duration = 15;
+    if (questions.length >= 40) {
+      duration = 90;
+    } else if (questions.length >= 20) {
+      duration = 45;
+    }
+    const timeMatch = promptText.match(/(\d+)\s*(phút|minute|pt)/i);
+    if (timeMatch) {
+      duration = parseInt(timeMatch[1], 10);
+    }
+    
+    // Determine difficulty
+    let difficulty = "Trung bình";
+    if (lowerPrompt.includes("khó") || lowerPrompt.includes("nâng cao") || lowerPrompt.includes("giỏi")) {
+      difficulty = "Khó";
+    } else if (lowerPrompt.includes("dễ") || lowerPrompt.includes("cơ bản")) {
+      difficulty = "Dễ";
+    }
+
+    // Format title: "Đề thi môn Toán Lớp 5 (15 phút)"
+    let examTitle = `${examType} môn ${subjectName}`;
+    if (gradeVal) {
+      examTitle += ` Lớp ${gradeVal}`;
+    }
+    examTitle += ` (${duration} phút)`;
 
     const newExam = store.addExam({
       title: examTitle,
       subject: subjectName,
+      grade: gradeVal,
+      duration: duration,
+      difficulty: difficulty,
+      examType: examType,
       questions: questions
     });
 
@@ -1036,8 +1264,191 @@ function renderLibraryGrid(state) {
 }
 
 // --------------------------------------------------------------------------
-// 3. RENDER EXAMS VIEW
+// 3. AUTO GENERATE MODAL AND EXAMS VIEW
 // --------------------------------------------------------------------------
+export function openAutoGenerateModal(subject, grade) {
+  // Remove existing modals if any
+  const oldModal = document.getElementById("modalAutoGenerateExam");
+  if (oldModal) oldModal.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "modalAutoGenerateExam";
+  modal.className = "modal show";
+  
+  modal.innerHTML = `
+    <div class="modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); z-index: 9999;"></div>
+    <div class="modal-content" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; width: 100%; max-width: 580px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 28px; display: flex; flex-direction: column; gap: 20px;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--primary));"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <h2 style="font-family: var(--font-headings); font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin: 0;">Tạo đề tự động bằng AI</h2>
+        </div>
+        <button class="btn-close-auto-generate" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.5rem; line-height: 1; padding: 4px;">&times;</button>
+      </div>
+
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 18px;">
+        <p style="font-size: 0.925rem; color: var(--text-muted);">
+          Hệ thống AI sẽ tự động biên soạn nội dung, câu hỏi trắc nghiệm và lời giải chi tiết cho môn <strong>${subject} - Lớp ${grade}</strong>.
+        </p>
+
+        <!-- Options selection -->
+        <div style="display: flex; flex-direction: column; gap: 10px;" id="autoGenOptionsGroup">
+          
+          <!-- Option 1: 15 mins -->
+          <div class="auto-gen-option-card active" data-duration="15" data-questions="10" data-type="Đề kiểm tra" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border: 2px solid hsl(var(--primary)); background: hsl(var(--primary-light)); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 38px; height: 38px; border-radius: 50%; background: hsla(195, 100%, 46%, 0.15); display: flex; align-items: center; justify-content: center; color: hsl(var(--primary-dark));">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Kiểm tra 15 phút</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Bài kiểm tra nhanh củng cố kiến thức</span>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-weight: 700; color: hsl(var(--primary-dark)); font-size: 0.95rem;">10 Câu hỏi</span>
+            </div>
+          </div>
+
+          <!-- Option 2: 45 mins -->
+          <div class="auto-gen-option-card" data-duration="45" data-questions="25" data-type="Đề kiểm tra" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(245, 158, 11, 0.1); display: flex; align-items: center; justify-content: center; color: #d97706;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 10"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Kiểm tra 45 phút</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Đề thi định kỳ giữa kỳ hoặc cuối chương</span>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-weight: 700; color: #d97706; font-size: 0.95rem;">25 Câu hỏi</span>
+            </div>
+          </div>
+
+          <!-- Option 3: 90 mins -->
+          <div class="auto-gen-option-card" data-duration="90" data-questions="50" data-type="Đề thi" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center; color: #dc2626;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Thi học kỳ (90 phút)</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Đề thi học kỳ chính thức hoặc thi khảo sát</span>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-weight: 700; color: #dc2626; font-size: 0.95rem;">50 Câu hỏi</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Extra configuration -->
+        <div class="form-group" style="margin-top: 6px; margin-bottom: 0;">
+          <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 6px;">Chọn độ khó của đề thi:</label>
+          <select id="autoGenDifficulty" class="filter-select" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background-color: var(--bg-input); outline: none;">
+            <option value="Dễ">Dễ (Kiến thức cơ bản, dễ hiểu)</option>
+            <option value="Trung bình" selected>Trung bình (Độ phân hóa vừa phải, chuẩn SGK)</option>
+            <option value="Khó">Khó (Nâng cao, kích thích tư duy, phân hóa học sinh giỏi)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 4px;">
+        <button class="btn btn-secondary btn-cancel-auto-generate" style="padding: 10px 18px;">Hủy</button>
+        <button id="btnStartAutoGenerate" class="btn btn-primary" style="padding: 10px 22px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+          Bắt đầu tạo đề
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Set up selection logic
+  const cards = modal.querySelectorAll(".auto-gen-option-card");
+  let selectedOption = {
+    duration: 15,
+    questions: 10,
+    type: "Đề kiểm tra"
+  };
+
+  cards.forEach(card => {
+    card.addEventListener("click", () => {
+      cards.forEach(c => {
+        c.style.border = "1px solid var(--border-color)";
+        c.style.background = "var(--bg-card)";
+        c.classList.remove("active");
+      });
+
+      card.classList.add("active");
+      const duration = parseInt(card.getAttribute("data-duration"), 10);
+      const questions = parseInt(card.getAttribute("data-questions"), 10);
+      const type = card.getAttribute("data-type");
+
+      selectedOption = { duration, questions, type };
+
+      // Highlight selected card
+      let activeBorderColor = "hsl(var(--primary))";
+      let activeBg = "hsl(var(--primary-light))";
+      if (duration === 45) {
+        activeBorderColor = "#f59e0b";
+        activeBg = "rgba(245, 158, 11, 0.05)";
+      } else if (duration === 90) {
+        activeBorderColor = "#dc2626";
+        activeBg = "rgba(239, 68, 68, 0.05)";
+      }
+
+      card.style.border = `2px solid ${activeBorderColor}`;
+      card.style.background = activeBg;
+    });
+  });
+
+  // Closing handler
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  modal.querySelector(".btn-close-auto-generate").addEventListener("click", closeModal);
+  modal.querySelector(".btn-cancel-auto-generate").addEventListener("click", closeModal);
+  modal.querySelector(".modal-backdrop").addEventListener("click", closeModal);
+
+  // Start generation handler
+  modal.querySelector("#btnStartAutoGenerate").addEventListener("click", () => {
+    const difficulty = modal.querySelector("#autoGenDifficulty").value;
+    const { duration, questions, type } = selectedOption;
+
+    closeModal();
+
+    // Check plan & API key
+    const state = store.getState();
+    const subStatus = store.getSubscriptionStatus();
+    
+    if (subStatus.plan === "Free" && !state.user.geminiApiKey) {
+      alert("Thời gian dùng thử miễn phí 7 ngày của bạn đã hết hạn.\\nVui lòng nâng cấp gói Pro hoặc tự cấu hình Gemini API Key cá nhân trong mục Cài đặt để tiếp tục sử dụng tính năng thông minh bằng AI!");
+      if (window.openUpgradeModal) {
+        window.openUpgradeModal();
+      }
+      return;
+    }
+
+    // Determine subject key
+    const lowerSub = subject.toLowerCase();
+    const subjectKey = (lowerSub.includes("toán") || lowerSub === "toan") ? "toan" : "tienganh";
+
+    // Formulate clean structured prompt
+    const promptText = `Tạo ${type} môn ${subject} Lớp ${grade} thời gian làm bài ${duration} phút với số lượng câu hỏi là ${questions} câu. Độ khó: ${difficulty}.`;
+
+    if (state.user.geminiApiKey) {
+      startActualGeminiGeneration(state.user.geminiApiKey, promptText, subjectKey, []);
+    } else {
+      alert("Bạn chưa cấu hình Gemini API Key thật.\\nỨng dụng sẽ tự động tải bộ câu hỏi mẫu minh họa và tự nhân bản cho đủ số câu hỏi của bạn. Để tạo câu hỏi thật theo đúng ý, vui lòng vào tab 'Cài đặt' điền Gemini API Key nhé!");
+      startSimulatedAIGeneration(subjectKey, promptText);
+    }
+  });
+}
+
 export function renderExams(container) {
   const state = store.getState();
 
@@ -1056,65 +1467,198 @@ export function renderExams(container) {
     }
   }
 
+  // Initialize filters if empty
+  if (!window.examListFilters) {
+    window.examListFilters = {
+      examType: "all",
+      difficulty: "all",
+      sortBy: "newest"
+    };
+  }
+
   // Otherwise, render list of exams
+  let filteredExams = state.exams;
+  let viewTitleText = "Danh sách đề thi";
+  let viewSubtitleText = "Quản lý cấu trúc đề thi, lời giải chi tiết và chia sẻ bài thi trên MyaQuiz.";
+  let headerActionsHtml = "";
+
+  if (window.activeExamFilter) {
+    const { subject, grade } = window.activeExamFilter;
+    viewTitleText = `Đề thi: Môn ${subject} - Lớp ${grade}`;
+    viewSubtitleText = `Hiển thị danh sách đề thi đã tạo thuộc môn ${subject} và khối lớp ${grade}.`;
+    
+    headerActionsHtml = `
+      <div class="view-header-actions" style="margin-left: auto;">
+        <button id="btnAutoGenerateHeader" class="btn btn-primary" style="padding: 10px 20px; font-size: 0.95rem; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: var(--radius-md); box-shadow: 0 4px 12px hsla(195, 100%, 46%, 0.25);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spark-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Tạo đề tự động bằng AI
+        </button>
+      </div>
+    `;
+    
+    filteredExams = state.exams.filter(e => {
+      let matchSubject = false;
+      if (e.subject) {
+        const examSub = e.subject.toLowerCase();
+        const filterSub = subject.toLowerCase();
+        if (filterSub.includes("toán") || filterSub === "toan") {
+          matchSubject = examSub.includes("toán") || examSub === "toan";
+        } else if (filterSub.includes("anh") || filterSub === "english") {
+          matchSubject = examSub.includes("anh") || examSub.includes("english");
+        } else {
+          matchSubject = examSub === filterSub;
+        }
+      }
+      
+      let examGrade = e.grade;
+      if (!examGrade) {
+        const match = e.title.match(/lớp\\s*([1-9]|1[0-2])/i) || e.title.match(/grade\\s*([1-9]|1[0-2])/i);
+        if (match) {
+          examGrade = parseInt(match[1], 10);
+        }
+      }
+      const matchGrade = examGrade === grade;
+      
+      return matchSubject && matchGrade;
+    });
+  }
+
+  // Apply toolbar filters
+  let processedExams = [...filteredExams];
+  
+  if (window.examListFilters.examType !== "all") {
+    processedExams = processedExams.filter(e => {
+      const type = e.examType || (e.title.toLowerCase().includes("đề thi") ? "Đề thi" : "Đề kiểm tra");
+      return type === window.examListFilters.examType;
+    });
+  }
+  
+  if (window.examListFilters.difficulty !== "all") {
+    processedExams = processedExams.filter(e => {
+      const diff = e.difficulty || "Trung bình";
+      return diff === window.examListFilters.difficulty;
+    });
+  }
+  
+  // Sort
+  if (window.examListFilters.sortBy === "newest") {
+    processedExams.sort((a, b) => new Date(b.created) - new Date(a.created));
+  } else if (window.examListFilters.sortBy === "oldest") {
+    processedExams.sort((a, b) => new Date(a.created) - new Date(b.created));
+  } else if (window.examListFilters.sortBy === "questions_asc") {
+    processedExams.sort((a, b) => a.questionsCount - b.questionsCount);
+  } else if (window.examListFilters.sortBy === "questions_desc") {
+    processedExams.sort((a, b) => b.questionsCount - a.questionsCount);
+  }
+
   container.innerHTML = `
-    <div class="view-header">
-      <div class="view-title-group">
-        <h1 class="view-title">Danh sách đề thi</h1>
-        <p class="view-subtitle" style="color: var(--text-muted);">Quản lý cấu trúc đề thi, lời giải chi tiết và chia sẻ bài thi trên MyaQuiz.</p>
+    <div class="view-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; width: 100%;">
+      <div class="view-title-group" style="display: flex; flex-direction: column; gap: 4px; max-width: 600px;">
+        <h1 class="view-title">${viewTitleText}</h1>
+        <p class="view-subtitle" style="color: var(--text-muted);">${viewSubtitleText}</p>
+      </div>
+      ${headerActionsHtml}
+    </div>
+
+    <!-- Filters Toolbar -->
+    <div class="card filters-toolbar" style="display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 18px; margin-bottom: 20px; align-items: center; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); width: 100%;">
+      <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); white-space: nowrap;">Loại đề:</span>
+        <select class="form-group select btn-sm" id="filterExamType" style="padding: 4px 8px; font-size: 0.85rem; border-radius: var(--radius-sm); margin: 0; width: auto; height: auto;">
+          <option value="all" \${window.examListFilters.examType === 'all' ? 'selected' : ''}>Tất cả</option>
+          <option value="Đề thi" \${window.examListFilters.examType === 'Đề thi' ? 'selected' : ''}>Đề thi</option>
+          <option value="Đề kiểm tra" \${window.examListFilters.examType === 'Đề kiểm tra' ? 'selected' : ''}>Đề kiểm tra</option>
+        </select>
+      </div>
+
+      <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); white-space: nowrap;">Độ khó:</span>
+        <select class="form-group select btn-sm" id="filterDifficulty" style="padding: 4px 8px; font-size: 0.85rem; border-radius: var(--radius-sm); margin: 0; width: auto; height: auto;">
+          <option value="all" \${window.examListFilters.difficulty === 'all' ? 'selected' : ''}>Tất cả</option>
+          <option value="Dễ" \${window.examListFilters.difficulty === 'Dễ' ? 'selected' : ''}>Dễ</option>
+          <option value="Trung bình" \${window.examListFilters.difficulty === 'Trung bình' ? 'selected' : ''}>Trung bình</option>
+          <option value="Khó" \${window.examListFilters.difficulty === 'Khó' ? 'selected' : ''}>Khó</option>
+        </select>
+      </div>
+
+      <div class="filter-group" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); white-space: nowrap;">Sắp xếp:</span>
+        <select class="form-group select btn-sm" id="filterSortBy" style="padding: 4px 8px; font-size: 0.85rem; border-radius: var(--radius-sm); margin: 0; width: auto; height: auto;">
+          <option value="newest" \${window.examListFilters.sortBy === 'newest' ? 'selected' : ''}>Mới nhất</option>
+          <option value="oldest" \${window.examListFilters.sortBy === 'oldest' ? 'selected' : ''}>Cũ nhất</option>
+          <option value="questions_asc" \${window.examListFilters.sortBy === 'questions_asc' ? 'selected' : ''}>Số câu (Tăng dần)</option>
+          <option value="questions_desc" \${window.examListFilters.sortBy === 'questions_desc' ? 'selected' : ''}>Số câu (Giảm dần)</option>
+        </select>
       </div>
     </div>
 
-    <div class="library-grid" id="examsListGrid">
+    <div class="library-grid" id="examsListGrid" style="width: 100%;">
       <!-- Loaded dynamically -->
     </div>
   `;
 
   const grid = document.getElementById("examsListGrid");
   
-  if (state.exams.length === 0) {
+  if (processedExams.length === 0) {
     grid.innerHTML = `
       <div class="empty-state-box" style="grid-column: 1 / -1; padding: 60px 20px;">
         <div class="empty-state-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
         <h3 class="empty-state-title">Chưa có đề thi nào</h3>
-        <p class="empty-state-subtitle">Bắt đầu soạn đề tại Trang chủ bằng công cụ soạn đề AI.</p>
+        <p class="empty-state-subtitle">Không tìm thấy đề thi nào phù hợp với bộ lọc được chọn.</p>
       </div>
     `;
+    
+    // Bind header auto-generate button even if empty
+    const btnAutoGenHeader = document.getElementById("btnAutoGenerateHeader");
+    if (btnAutoGenHeader && window.activeExamFilter) {
+      btnAutoGenHeader.addEventListener("click", () => {
+        const { subject, grade } = window.activeExamFilter;
+        openAutoGenerateModal(subject, grade);
+      });
+    }
     return;
   }
 
-  grid.innerHTML = state.exams.map(e => `
-    <div class="exam-library-card" data-exam-id="${e.id}">
-      <div class="exam-card-main">
-        <div class="exam-card-meta-row">
-          <span class="exam-card-subject-tag">${e.subject}</span>
-          <span class="exam-card-date">${formatDate(e.created)}</span>
-        </div>
-        <h3 class="exam-card-title" title="${e.title}">${e.title}</h3>
-      </div>
-      <div>
-        <div class="exam-card-stats">
-          <div class="exam-card-stat-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span>15 phút</span>
+  grid.innerHTML = processedExams.map(e => {
+    const diff = e.difficulty || "Trung bình";
+    const diffClass = diff === "Khó" ? "hard" : diff === "Dễ" ? "easy" : "medium";
+    const diffColor = diff === "Khó" ? "#ef4444" : diff === "Dễ" ? "#10b981" : "#f59e0b";
+    const diffBg = diff === "Khó" ? "#fee2e2" : diff === "Dễ" ? "#d1fae5" : "#fef3c7";
+    
+    return `
+      <div class="exam-library-card" data-exam-id="${e.id}">
+        <div class="exam-card-main">
+          <div class="exam-card-meta-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span class="exam-card-subject-tag">${e.subject}</span>
+            <span class="exam-card-difficulty-tag ${diffClass}" style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; background: ${diffBg}; color: ${diffColor};">${diff}</span>
+            <span class="exam-card-date" style="margin-left: auto;">${formatDate(e.created)}</span>
           </div>
-          <div class="exam-card-stat-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span>${e.questionsCount} câu hỏi</span>
+          <h3 class="exam-card-title" title="${e.title}" style="margin-top: 10px;">${e.title}</h3>
+        </div>
+        <div>
+          <div class="exam-card-stats">
+            <div class="exam-card-stat-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>${e.duration || 15} phút</span>
+            </div>
+            <div class="exam-card-stat-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>${e.questionsCount} câu hỏi</span>
+            </div>
+          </div>
+          <div class="exam-card-footer">
+            <span class="exam-card-author">
+              <span class="exam-card-author-avatar">${e.author ? e.author.substring(0, 1) : "M"}</span>
+              <span>${e.author || "MyaQuiz AI"}</span>
+            </span>
+            <button class="btn btn-secondary btn-sm btn-delete-exam" data-exam-id="${e.id}" style="padding: 4px 8px; font-size: 0.75rem;">Xóa</button>
           </div>
         </div>
-        <div class="exam-card-footer">
-          <span class="exam-card-author">
-            <span class="exam-card-author-avatar">${e.author ? e.author.substring(0, 1) : "M"}</span>
-            <span>${e.author || "MyaQuiz AI"}</span>
-          </span>
-          <button class="btn btn-secondary btn-sm btn-delete-exam" data-exam-id="${e.id}" style="padding: 4px 8px; font-size: 0.75rem;">Xóa</button>
-        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   // Click handler to select exam
   grid.querySelectorAll(".exam-library-card").forEach(card => {
@@ -1133,10 +1677,33 @@ export function renderExams(container) {
       const id = btn.getAttribute("data-exam-id");
       if (confirm("Bạn có chắc muốn xóa đề thi này khỏi hệ thống?")) {
         store.removeExam(id);
-        window.refreshActiveView();
+        renderExams(container);
       }
     });
   });
+
+  // Toolbar event listeners
+  document.getElementById("filterExamType").addEventListener("change", (e) => {
+    window.examListFilters.examType = e.target.value;
+    renderExams(container);
+  });
+  document.getElementById("filterDifficulty").addEventListener("change", (e) => {
+    window.examListFilters.difficulty = e.target.value;
+    renderExams(container);
+  });
+  document.getElementById("filterSortBy").addEventListener("change", (e) => {
+    window.examListFilters.sortBy = e.target.value;
+    renderExams(container);
+  });
+
+  // Bind Header Auto-generate button if present
+  const btnAutoGenHeader = document.getElementById("btnAutoGenerateHeader");
+  if (btnAutoGenHeader && window.activeExamFilter) {
+    btnAutoGenHeader.addEventListener("click", () => {
+      const { subject, grade } = window.activeExamFilter;
+      openAutoGenerateModal(subject, grade);
+    });
+  }
 }
 
 function renderExamDetail(container, exam) {
@@ -1153,20 +1720,42 @@ function renderExamDetail(container, exam) {
     </div>
 
     <!-- Exam Info Panel -->
-    <div class="view-header">
+    <div class="view-header" style="flex-direction: column; align-items: flex-start; gap: 12px;">
       <div class="view-title-group">
         <h1 class="view-title" style="font-size: 1.5rem; line-height: 1.3;">${exam.title}</h1>
-        <p class="view-subtitle" style="color: var(--text-muted);">Môn học: <strong>${exam.subject}</strong> • Tạo ngày: ${formatDate(exam.created)}</p>
+        <p class="view-subtitle" style="color: var(--text-muted); margin-top: 4px;">Môn học: <strong>${exam.subject}</strong> • Tạo ngày: ${formatDate(exam.created)}</p>
       </div>
-      <div style="display: flex; gap: 8px;">
+      
+      <!-- Actions panel with downloads -->
+      <div class="exam-actions-row" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; width: 100%; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 12px 0; margin-top: 4px;">
         <button class="btn btn-primary" id="btnStartExamQuiz">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          <span>Thi thử</span>
+          <span>Làm bài thi</span>
         </button>
-        <button class="btn btn-secondary" id="btnPrintExam" title="In đề thi">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          <span>In đề</span>
+
+        <button class="btn btn-secondary" id="btnPrintExam" title="In đề thi cho học sinh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          <span>In đề thi</span>
         </button>
+
+        ${state.user.role === 'student' ? '' : `
+        <button class="btn btn-secondary" id="btnPrintAnswers" title="In đề thi kèm đáp án và lời giải">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #059669;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/><circle cx="12" cy="18" r="1"/></svg>
+          <span style="color: #059669;">In Đáp án</span>
+        </button>
+        `}
+
+        <button class="btn btn-secondary" id="btnExportWord" title="Tải đề thi file Word (.doc)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Tải file Word</span>
+        </button>
+
+        ${state.user.role === 'student' ? '' : `
+        <button class="btn btn-secondary" id="btnExportWordAnswers" title="Tải đáp án & lời giải file Word (.doc)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0284c7;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="18" r="1"/></svg>
+          <span style="color: #0284c7;">Tải Đáp án (.doc)</span>
+        </button>
+        `}
       </div>
     </div>
 
@@ -1184,22 +1773,14 @@ function renderExamDetail(container, exam) {
             <ul style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
               ${q.options.map((opt, oIdx) => {
                 const letter = String.fromCharCode(65 + oIdx);
-                const isCorrect = oIdx === q.answer;
                 return `
                   <li style="display: flex; gap: 8px; font-size: 0.95rem;">
                     <strong>${letter}.</strong>
                     <span>${opt}</span>
-                    ${isCorrect ? `<span style="color: #10b981; font-weight: 700; margin-left: 10px; font-size: 0.85rem;">(Đáp án đúng)</span>` : ''}
                   </li>
                 `;
               }).join('')}
             </ul>
-
-            <button class="btn btn-secondary btn-sm btn-toggle-explanation" style="align-self: flex-start; margin-top: 10px;">Hiện lời giải chi tiết</button>
-            <div class="question-explanation" style="display: none; margin-top: 10px;">
-              <div class="explanation-title">Giải thích từ AI:</div>
-              <p>${q.explanation || "Không có giải thích cho câu hỏi này."}</p>
-            </div>
           </div>
         `).join('')}
       </div>
@@ -1246,20 +1827,6 @@ function renderExamDetail(container, exam) {
     window.refreshActiveView();
   });
 
-  // Toggle Answers Explanation
-  container.querySelectorAll(".btn-toggle-explanation").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const expDiv = btn.nextElementSibling;
-      if (expDiv.style.display === "none") {
-        expDiv.style.display = "block";
-        btn.innerText = "Ẩn lời giải chi tiết";
-      } else {
-        expDiv.style.display = "none";
-        btn.innerText = "Hiện lời giải chi tiết";
-      }
-    });
-  });
-
   // Delete Exam
   document.getElementById("btnDeleteExamDetail").addEventListener("click", () => {
     if (confirm("Xóa vĩnh viễn đề thi này?")) {
@@ -1282,10 +1849,29 @@ function renderExamDetail(container, exam) {
     }
   });
 
-  // Print Exam trigger
+  // Print Exam triggers (Practice vs Answers)
   document.getElementById("btnPrintExam").addEventListener("click", () => {
-    window.print();
+    printExamPaper(exam, false);
   });
+
+  const btnPrintAnswers = document.getElementById("btnPrintAnswers");
+  if (btnPrintAnswers) {
+    btnPrintAnswers.addEventListener("click", () => {
+      printExamPaper(exam, true);
+    });
+  }
+
+  // Export Word doc triggers (Practice vs Answers)
+  document.getElementById("btnExportWord").addEventListener("click", () => {
+    exportToWord(exam, false);
+  });
+
+  const btnExportWordAnswers = document.getElementById("btnExportWordAnswers");
+  if (btnExportWordAnswers) {
+    btnExportWordAnswers.addEventListener("click", () => {
+      exportToWord(exam, true);
+    });
+  }
 
   // Take Exam Quiz Trigger
   document.getElementById("btnStartExamQuiz").addEventListener("click", () => {
@@ -1296,6 +1882,274 @@ function renderExamDetail(container, exam) {
     };
     window.refreshActiveView();
   });
+}
+
+function printExamPaper(exam, showAnswers) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    alert("Không thể mở cửa sổ in. Vui lòng tắt trình chặn popup trên trình duyệt của bạn!");
+    return;
+  }
+  
+  let questionsHTML = "";
+  exam.questions.forEach((q, idx) => {
+    let optionsHTML = "";
+    const maxOptionLen = Math.max(...q.options.map(opt => opt.length));
+    
+    if (maxOptionLen < 15) {
+      optionsHTML = `<table class="options-grid-4"><tr>`;
+      q.options.forEach((opt, oIdx) => {
+        const letter = String.fromCharCode(65 + oIdx);
+        const isCorrect = oIdx === q.answer && showAnswers;
+        const className = isCorrect ? 'correct-ans' : '';
+        optionsHTML += `<td class="${className}"><strong>${letter}.</strong> ${opt}</td>`;
+      });
+      optionsHTML += `</tr></table>`;
+    } else if (maxOptionLen < 30) {
+      optionsHTML = `<table class="options-table"><tr>`;
+      q.options.forEach((opt, oIdx) => {
+        const letter = String.fromCharCode(65 + oIdx);
+        const isCorrect = oIdx === q.answer && showAnswers;
+        const className = isCorrect ? 'correct-ans' : '';
+        optionsHTML += `<td class="${className}"><strong>${letter}.</strong> ${opt}</td>`;
+        if (oIdx === 1) {
+          optionsHTML += `</tr><tr>`;
+        }
+      });
+      optionsHTML += `</tr></table>`;
+    } else {
+      optionsHTML = `<ul class="options-list">`;
+      q.options.forEach((opt, oIdx) => {
+        const letter = String.fromCharCode(65 + oIdx);
+        const isCorrect = oIdx === q.answer && showAnswers;
+        const className = isCorrect ? 'correct-ans' : '';
+        optionsHTML += `<li class="${className}"><strong>${letter}.</strong> ${opt}</li>`;
+      });
+      optionsHTML += `</ul>`;
+    }
+    
+    let explanationHTML = "";
+    if (showAnswers && q.explanation) {
+      explanationHTML = `<div class="explanation"><strong>Lời giải chi tiết:</strong> ${q.explanation}</div>`;
+    }
+    
+    questionsHTML += `
+      <div class="question" style="margin-top: 18px; font-weight: bold; page-break-inside: avoid;">Câu ${idx + 1}: ${q.text}</div>
+      ${optionsHTML}
+      ${explanationHTML}
+    `;
+  });
+  
+  const docHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>${exam.title}</title>
+  <style>
+    body { font-family: 'Times New Roman', Times, serif; padding: 40px; line-height: 1.5; font-size: 12pt; color: #000; }
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .header-table td { vertical-align: top; font-size: 11pt; }
+    .title { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0 10px 0; text-transform: uppercase; }
+    .sub-title { text-align: center; font-style: italic; margin-bottom: 25px; }
+    .student-info { margin-bottom: 20px; font-size: 11.5pt; line-height: 1.8; }
+    .options-table { width: 100%; margin-top: 6px; border-collapse: collapse; }
+    .options-table td { padding: 4px 0; width: 50%; font-size: 11.5pt; }
+    .options-grid-4 { width: 100%; margin-top: 6px; border-collapse: collapse; }
+    .options-grid-4 td { padding: 4px 0; width: 25%; font-size: 11.5pt; }
+    .options-list { margin-left: 20px; list-style-type: none; padding-left: 0; margin-top: 6px; }
+    .options-list li { margin-bottom: 6px; font-size: 11.5pt; }
+    .explanation { margin-top: 8px; font-style: italic; color: #1f2937; background-color: #f3f4f6; padding: 10px; border-left: 3px solid #4b5563; font-size: 11pt; page-break-inside: avoid; }
+    .correct-ans { font-weight: bold; text-decoration: underline; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td style="width: 45%;">
+        <strong>TRƯỜNG/HỆ THỐNG:</strong> MyaQuiz.ai<br>
+        <strong>MÃ ĐỀ THI:</strong> DE-${exam.id.substring(0, 6).toUpperCase()}
+      </td>
+      <td style="width: 55%; text-align: right;">
+        <strong>ĐỀ THI KHẢO SÁT CHẤT LƯỢNG HỌC PHẦN</strong><br>
+        <strong>Môn học:</strong> ${exam.subject}<br>
+        <em>Thời gian làm bài: 45 phút (Không kể thời gian phát đề)</em>
+      </td>
+    </tr>
+  </table>
+  
+  <div class="title">ĐỀ THI: ${exam.title}</div>
+  <div class="sub-title">${showAnswers ? "--- ĐÁP ÁN & HƯỚNG DẪN GIẢI CHI TIẾT ---" : "--- ĐỀ THI CHÍNH THỨC ---"}</div>
+  
+  <div class="student-info">
+    Họ và tên học sinh:........................................................................... Lớp:............................<br>
+    Số báo danh (SBD):.......................................................................... Phòng thi:......................
+  </div>
+  
+  <hr style="border: 0; border-top: 1px solid #000; margin: 15px 0;">
+  
+  <div class="questions-container">
+    ${questionsHTML}
+  </div>
+  
+  <script>
+    window.onload = function() {
+      window.print();
+      setTimeout(function() { window.close(); }, 500);
+    }
+  </script>
+</body>
+</html>
+  `;
+  
+  printWindow.document.write(docHTML);
+  printWindow.document.close();
+}
+
+function exportToWord(exam, showAnswers) {
+  let questionsHTML = "";
+  exam.questions.forEach((q, idx) => {
+    let optionsHTML = "";
+    const maxOptionLen = Math.max(...q.options.map(opt => opt.length));
+    
+    if (maxOptionLen < 15) {
+      optionsHTML = `<table style="width:100%; border-collapse:collapse; border:none; margin-top:6px;"><tr>`;
+      q.options.forEach((opt, oIdx) => {
+        const letter = String.fromCharCode(65 + oIdx);
+        const isCorrect = oIdx === q.answer && showAnswers;
+        const style = isCorrect ? 'font-weight:bold; text-decoration:underline;' : '';
+        optionsHTML += `<td style="width:25%; border:none; padding:4px 0; font-family:'Times New Roman'; font-size:11.5pt; ${style}"><strong>${letter}.</strong> ${opt}</td>`;
+      });
+      optionsHTML += `</tr></table>`;
+    } else if (maxOptionLen < 30) {
+      optionsHTML = `<table style="width:100%; border-collapse:collapse; border:none; margin-top:6px;"><tr>`;
+      q.options.forEach((opt, oIdx) => {
+        const letter = String.fromCharCode(65 + oIdx);
+        const isCorrect = oIdx === q.answer && showAnswers;
+        const style = isCorrect ? 'font-weight:bold; text-decoration:underline;' : '';
+        optionsHTML += `<td style="width:50%; border:none; padding:4px 0; font-family:'Times New Roman'; font-size:11.5pt; ${style}"><strong>${letter}.</strong> ${opt}</td>`;
+        if (oIdx === 1) {
+          optionsHTML += `</tr><tr>`;
+        }
+      });
+      optionsHTML += `</tr></table>`;
+    } else {
+      optionsHTML = `<ul style="list-style-type:none; margin-left:20px; padding-left:0; margin-top:6px;">`;
+      q.options.forEach((opt, oIdx) => {
+        const letter = String.fromCharCode(65 + oIdx);
+        const isCorrect = oIdx === q.answer && showAnswers;
+        const style = isCorrect ? 'font-weight:bold; text-decoration:underline;' : '';
+        optionsHTML += `<li style="margin-bottom:6px; font-family:'Times New Roman'; font-size:11.5pt; ${style}"><strong>${letter}.</strong> ${opt}</li>`;
+      });
+      optionsHTML += `</ul>`;
+    }
+    
+    let explanationHTML = "";
+    if (showAnswers && q.explanation) {
+      explanationHTML = `
+        <div style="margin-top:8px; margin-bottom:12px; background-color:#f3f4f6; border-left:3px solid #4b5563; padding:10px; font-family:'Times New Roman'; font-size:11pt; color:#1f2937; font-style:italic;">
+          <strong>Lời giải chi tiết:</strong> ${q.explanation}
+        </div>
+      `;
+    }
+    
+    questionsHTML += `
+      <p style="margin-top:14px; margin-bottom:4px; font-family:'Times New Roman'; font-size:12pt; font-weight:bold;">Câu ${idx + 1}: ${q.text}</p>
+      ${optionsHTML}
+      ${explanationHTML}
+    `;
+  });
+  
+  const docHTML = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>${exam.title}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    body { font-family: 'Times New Roman', Times, serif; }
+  </style>
+</head>
+<body style="font-family:'Times New Roman', Times, serif; padding:20px;">
+  <table style="width:100%; border-collapse:collapse; border:none; margin-bottom:20px;">
+    <tr>
+      <td style="width:45%; border:none; font-family:'Times New Roman'; font-size:11pt; line-height:1.4;">
+        <strong>TRƯỜNG/HỆ THỐNG:</strong> MyaQuiz.ai<br>
+        <strong>MÃ ĐỀ THI:</strong> DE-${exam.id.substring(0,6).toUpperCase()}
+      </td>
+      <td style="width:55%; border:none; text-align:right; font-family:'Times New Roman'; font-size:11pt; line-height:1.4;">
+        <strong>ĐỀ THI KHẢO SÁT CHẤT LƯỢNG HỌC PHẦN</strong><br>
+        <strong>Môn học:</strong> ${exam.subject}<br>
+        <em>Thời gian làm bài: 45 phút (Không kể thời gian phát đề)</em>
+      </td>
+    </tr>
+  </table>
+  
+  <p style="text-align:center; font-family:'Times New Roman'; font-size:16pt; font-weight:bold; margin-top:20px; margin-bottom:10px; text-transform:uppercase;">ĐỀ THI: ${exam.title}</p>
+  <p style="text-align:center; font-family:'Times New Roman'; font-size:12pt; font-style:italic; margin-bottom:25px;">${showAnswers ? "--- ĐÁP ÁN & HƯỚNG DẪN GIẢI CHI TIẾT ---" : "--- ĐỀ THI CHÍNH THỨC ---"}</p>
+  
+  <p style="font-family:'Times New Roman'; font-size:11.5pt; line-height:1.8; margin-bottom:20px;">
+    Họ và tên học sinh:........................................................................... Lớp:............................<br>
+    Số báo danh (SBD):.......................................................................... Phòng thi:......................
+  </p>
+  
+  <hr style="border:none; border-top:1px solid #000; margin:15px 0;">
+  
+  <div>
+    ${questionsHTML}
+  </div>
+</body>
+</html>
+  `;
+
+  // Use UTF-8 BOM to ensure Vietnamese characters are read correctly in MS Word
+  const blob = new Blob(['\ufeff' + docHTML], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const downloadLink = document.createElement("a");
+  document.body.appendChild(downloadLink);
+  downloadLink.href = url;
+  
+  function removeVietnameseTones(str) {
+    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+    str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+    str = str.replace(/đ/g, "d");
+    str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+    str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+    str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+    str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+    str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+    str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+    str = str.replace(/Đ/g, "D");
+    str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return str;
+  }
+  
+  const cleanTitle = removeVietnameseTones(exam.title)
+    .replace(/[^a-zA-Z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+    
+  downloadLink.download = showAnswers 
+    ? `${cleanTitle}_DAP_AN.doc`
+    : `${cleanTitle}_DE_THI.doc`;
+    
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+  URL.revokeObjectURL(url);
 }
 
 function renderQuizMode(container, exam) {
@@ -1427,6 +2281,8 @@ function renderQuizMode(container, exam) {
 
 function submitQuiz(exam) {
   quizState.submitted = true;
+  const state = store.getState();
+  const isStudent = state.user.role === "student";
   
   let correctCount = 0;
   exam.questions.forEach((q, idx) => {
@@ -1436,7 +2292,13 @@ function submitQuiz(exam) {
     const card = document.getElementById(`quizQuestionCard_${idx}`);
     const explanation = document.getElementById(`quizExplanation_${idx}`);
     
-    if (explanation) explanation.style.display = "block";
+    if (explanation) {
+      if (isStudent && userAnswer === correctIdx) {
+        explanation.style.display = "none";
+      } else {
+        explanation.style.display = "block";
+      }
+    }
     
     const options = card.querySelectorAll(".quiz-option-item");
     options.forEach((opt, oIdx) => {
@@ -1486,14 +2348,304 @@ function submitQuiz(exam) {
 // --------------------------------------------------------------------------
 // 4. RENDER QUESTION BANK VIEW
 // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+// 4. RENDER QUESTION BANK VIEW
+// --------------------------------------------------------------------------
+function getExtendedQuestionBank(state) {
+  // 1. Gather all questions from exams in the library (which are the "đề thi đã làm/tạo")
+  let examQuestions = [];
+  if (state.exams) {
+    state.exams.forEach(e => {
+      const eSubject = e.subject || "Tổng hợp";
+      if (e.questions) {
+        e.questions.forEach((q, idx) => {
+          examQuestions.push({
+            id: `exam_q_${e.id}_${idx}`,
+            subject: eSubject,
+            text: q.text,
+            options: q.options,
+            answer: q.answer,
+            explanation: q.explanation || `Câu hỏi được trích xuất từ đề thi: ${e.title}`
+          });
+        });
+      }
+    });
+  }
+
+  // 2. Gather user-created questions in the QBank
+  const userQbank = state.qbank || [];
+  
+  // Combine both
+  let combined = [...userQbank, ...examQuestions];
+  
+  // Remove duplicates based on question text to keep the pool clean and distinct
+  const seenTexts = new Set();
+  combined = combined.filter(q => {
+    const textClean = q.text.trim().toLowerCase();
+    if (seenTexts.has(textClean)) return false;
+    seenTexts.add(textClean);
+    return true;
+  });
+  
+  // 3. If combined is less than 100, generate/pre-populate high-quality educational questions to reach 100
+  const remaining = 100 - combined.length;
+  if (remaining > 0) {
+    const seedPool = [
+      // Toán
+      {
+        subject: "Toán",
+        text: "Tìm giá trị của x biết: 2x + 5 = 15.",
+        options: ["x = 5", "x = 10", "x = 15", "x = 2"],
+        answer: 0,
+        explanation: "Ta có: 2x = 15 - 5 => 2x = 10 => x = 5."
+      },
+      {
+        subject: "Toán",
+        text: "Diện tích hình tròn có bán kính R = 3cm bằng bao nhiêu?",
+        options: ["3π cm²", "6π cm²", "9π cm²", "12π cm²"],
+        answer: 2,
+        explanation: "Diện tích hình tròn S = π.R² = π.(3)² = 9π cm²."
+      },
+      {
+        subject: "Toán",
+        text: "Tìm đạo hàm của hàm số y = x^4 - 2x^2 + 1.",
+        options: ["y' = 4x^3 - 4x", "y' = 4x^3 - 2x", "y' = x^3 - 4x", "y' = 4x - 4"],
+        answer: 0,
+        explanation: "Áp dụng công thức đạo hàm: (x^n)' = n.x^(n-1). Ta có: y' = 4x^3 - 4x."
+      },
+      {
+        subject: "Toán",
+        text: "Tập nghiệm của phương trình x^2 - 5x + 6 = 0 là:",
+        options: ["{1; 5}", "{2; 3}", "{-2; -3}", "{1; 6}"],
+        answer: 1,
+        explanation: "Phương trình phân tích thành (x-2)(x-3) = 0 => x = 2 hoặc x = 3."
+      },
+      {
+        subject: "Toán",
+        text: "Giá trị của cos(60°) bằng bao nhiêu?",
+        options: ["1/2", "√3/2", "√2/2", "1"],
+        answer: 0,
+        explanation: "Giá trị lượng giác cơ bản: cos(60°) = 1/2."
+      },
+      {
+        subject: "Toán",
+        text: "Đồ thị hàm số y = (2x + 1)/(x - 1) có tiệm cận đứng là đường thẳng:",
+        options: ["x = 1", "x = 2", "y = 2", "y = 1"],
+        answer: 0,
+        explanation: "Tiệm cận đứng là nghiệm của mẫu số: x - 1 = 0 => x = 1."
+      },
+      {
+        subject: "Toán",
+        text: "Một hộp chứa 3 bi đỏ và 2 bi xanh. Chọn ngẫu nhiên 1 bi. Xác suất để chọn được bi đỏ là:",
+        options: ["3/5", "2/5", "1/5", "1/2"],
+        answer: 0,
+        explanation: "Tổng số bi là 5. Số bi đỏ là 3. Xác suất P = 3/5."
+      },
+      {
+        subject: "Toán",
+        text: "Cấp số cộng có u1 = 2 và công sai d = 3. Số hạng u5 bằng:",
+        options: ["14", "11", "17", "15"],
+        answer: 0,
+        explanation: "Số hạng tổng quát u_n = u1 + (n-1)d. u5 = 2 + 4*3 = 14."
+      },
+      // Tiếng Anh
+      {
+        subject: "Tiếng Anh",
+        text: "Choose the correct preposition: 'She is interested ___ learning history.'",
+        options: ["at", "on", "in", "about"],
+        answer: 2,
+        explanation: "Cấu trúc quen thuộc: 'be interested in sth/doing sth' (quan tâm, thích thú cái gì)."
+      },
+      {
+        subject: "Tiếng Anh",
+        text: "Which of the following words is a synonym of 'BEAUTIFUL'?",
+        options: ["Ugly", "Gorgeous", "Rough", "Plain"],
+        answer: 1,
+        explanation: "'Gorgeous' có nghĩa là lộng lẫy, cực kỳ đẹp, là từ đồng nghĩa với 'Beautiful'."
+      },
+      {
+        subject: "Tiếng Anh",
+        text: "Select the correct form of the verb: 'By the time we arrived, they ___.'",
+        options: ["had left", "have left", "left", "were leaving"],
+        answer: 0,
+        explanation: "Hành động xảy ra và hoàn thành trước một hành động khác trong quá khứ dùng thì Quá khứ hoàn thành (had + V3)."
+      },
+      {
+        subject: "Tiếng Anh",
+        text: "Identify the antonym of 'GENEROUS':",
+        options: ["Kind", "Mean", "Polite", "Helpful"],
+        answer: 1,
+        explanation: "'Generous' là hào phóng, từ trái nghĩa là 'Mean' (keo kiệt, ích kỷ)."
+      },
+      {
+        subject: "Tiếng Anh",
+        text: "Choose the correct modal verb: 'You ___ touch that hot pan. It will burn you.'",
+        options: ["mustn't", "don't have to", "might", "should"],
+        answer: 0,
+        explanation: "Dùng 'mustn't' để diễn tả sự cấm đoán hoặc khuyên ngăn mạnh mẽ (không được phép)."
+      },
+      {
+        subject: "Tiếng Anh",
+        text: "Complete the sentence: 'If it ___ tomorrow, we will cancel the picnic.'",
+        options: ["rains", "rain", "will rain", "rained"],
+        answer: 0,
+        explanation: "Câu điều kiện loại 1 (giả định có thể xảy ra ở hiện tại/tương lai): Mệnh đề If dùng thì Hiện tại đơn (If it rains)."
+      },
+      // Vật lý
+      {
+        subject: "Vật lý",
+        text: "Một vật chuyển động thẳng đều với vận tốc v = 5m/s. Quãng đường vật đi được sau 10 giây là:",
+        options: ["50m", "2m", "0.5m", "15m"],
+        answer: 0,
+        explanation: "Công thức chuyển động thẳng đều: s = v.t = 5 . 10 = 50m."
+      },
+      {
+        subject: "Vật lý",
+        text: "Hệ số ma sát trượt phụ thuộc chủ yếu vào yếu tố nào?",
+        options: ["Diện tích tiếp xúc", "Vận tốc của vật", "Vật liệu và tình trạng của hai bề mặt tiếp xúc", "Lực ép N"],
+        answer: 2,
+        explanation: "Hệ số ma sát trượt chỉ phụ thuộc vào vật liệu cấu tạo và tình trạng (nhám, khô, ướt...) của hai bề mặt tiếp xúc."
+      },
+      {
+        subject: "Vật lý",
+        text: "Một sóng âm truyền từ nước ra không khí thì tần số của sóng âm sẽ:",
+        options: ["Tăng lên", "Giảm đi", "Không đổi", "Thay đổi tùy theo nhiệt độ"],
+        answer: 2,
+        explanation: "Khi sóng (cơ học hoặc ánh sáng) truyền qua các môi trường khác nhau, tần số f của sóng luôn luôn không thay đổi."
+      },
+      {
+        subject: "Vật lý",
+        text: "Lực tương tác tĩnh điện giữa hai điện tích điểm được xác định theo định luật nào?",
+        options: ["Định luật Ohm", "Định luật Newton", "Định luật Coulomb", "Định luật Faraday"],
+        answer: 2,
+        explanation: "Định luật Coulomb xác định lực hút/đẩy giữa hai điện tích điểm đứng yên F = k.|q1.q2|/r²."
+      },
+      // Hóa học
+      {
+        subject: "Hóa học",
+        text: "Công thức hóa học của muối ăn thông thường là:",
+        options: ["NaCl", "KCl", "HCl", "NaOH"],
+        answer: 0,
+        explanation: "Muối ăn hàng ngày chủ yếu là Natri Clorua (NaCl)."
+      },
+      {
+        subject: "Hóa học",
+        text: "Kim loại nào sau đây ở trạng thái lỏng ở điều kiện thường?",
+        options: ["Sắt (Fe)", "Thủy ngân (Hg)", "Đồng (Cu)", "Vàng (Au)"],
+        answer: 1,
+        explanation: "Thủy ngân (Hg) là kim loại duy nhất ở dạng lỏng ở nhiệt độ phòng thông thường."
+      },
+      {
+        subject: "Hóa học",
+        text: "Khí nào sau đây có mùi trứng thối đặc trưng?",
+        options: ["CO₂", "NH₃", "H₂S", "SO₂"],
+        answer: 2,
+        explanation: "Khí Hydro Sunfua (H₂S) là chất khí độc, có mùi trứng thối đặc trưng phát sinh từ chất hữu cơ phân hủy."
+      },
+      {
+        subject: "Hóa học",
+        text: "Độ pH của một dung dịch trung tính ở 25°C là bao nhiêu?",
+        options: ["pH = 0", "pH = 7", "pH = 14", "pH = 5"],
+        answer: 1,
+        explanation: "Dung dịch trung tính (như nước tinh khiết) có pH = 7 ở điều kiện tiêu chuẩn."
+      },
+      // Địa lý
+      {
+        subject: "Địa lý",
+        text: "Tỉnh thành nào của Việt Nam có diện tích lớn nhất cả nước?",
+        options: ["Thanh Hóa", "Nghệ An", "Đắk Lắk", "Gia Lai"],
+        answer: 1,
+        explanation: "Nghệ An là tỉnh có diện tích đất tự nhiên lớn nhất Việt Nam (khoảng 16.490 km²)."
+      },
+      {
+        subject: "Địa lý",
+        text: "Thành phố nào được mệnh danh là 'Thành phố của kênh đào'?",
+        options: ["Paris", "Venice", "Amsterdam", "London"],
+        answer: 1,
+        explanation: "Venice (Ý) nổi tiếng thế giới với hệ thống kênh rạch chằng chịt và phương tiện di chuyển chính là thuyền Gondola."
+      },
+      {
+        subject: "Địa lý",
+        text: "Sông nào dài nhất thế giới?",
+        options: ["Sông Amazon", "Sông Nile", "Sông Mê Kông", "Sông Mississippi"],
+        answer: 1,
+        explanation: "Sông Nile ở Châu Phi là con sông dài nhất thế giới (khoảng 6.650 km), trong khi sông Amazon có lưu lượng nước lớn nhất."
+      },
+      // Lịch sử
+      {
+        subject: "Lịch sử",
+        text: "Chiến thắng Điện Biên Phủ vang dội năm nào?",
+        options: ["1945", "1954", "1975", "1968"],
+        answer: 1,
+        explanation: "Chiến thắng lịch sử Điện Biên Phủ lừng lẫy năm châu, chấn động địa cầu diễn ra vào ngày 7 tháng 5 năm 1954."
+      },
+      {
+        subject: "Lịch sử",
+        text: "Ai là người lãnh đạo cuộc cách mạng Tháng Mười Nga năm 1917?",
+        options: ["Karl Marx", "V.I. Lenin", "Joseph Stalin", "Leon Trotsky"],
+        answer: 1,
+        explanation: "Vladimir Ilyich Lenin là lãnh tụ vĩ đại của Đảng Bolshevik chỉ đạo thắng lợi cuộc Cách mạng tháng Mười Nga."
+      },
+      // Sinh học
+      {
+        subject: "Sinh học",
+        text: "Bào quan nào được coi là 'nhà máy năng lượng' của tế bào?",
+        options: ["Nhân tế bào", "Ti thể", "Lục lạp", "Ribosome"],
+        answer: 1,
+        explanation: "Ti thể (Mitochondria) chịu trách nhiệm hô hấp tế bào và tạo ra năng lượng ATP cung cấp cho các hoạt động sống."
+      },
+      {
+        subject: "Sinh học",
+        text: "Ai được coi là cha đẻ của ngành Di truyền học hiện đại?",
+        options: ["Charles Darwin", "Gregor Mendel", "Louis Pasteur", "Alexander Fleming"],
+        answer: 1,
+        explanation: "Gregor Mendel nổi tiếng với các thí nghiệm lai đậu Hà Lan thiết lập nên các quy luật cơ bản của di truyền học."
+      }
+    ];
+
+    // Systematic generator to yield enough questions up to 100
+    let currentIdx = 0;
+    while (combined.length < 100) {
+      const seed = seedPool[currentIdx % seedPool.length];
+      const repeatNum = Math.floor(currentIdx / seedPool.length) + 1;
+      
+      combined.push({
+        id: `sys_generated_q_${currentIdx}`,
+        subject: seed.subject,
+        text: repeatNum === 1 ? seed.text : `[Biến thể ${repeatNum}] ${seed.text}`,
+        options: seed.options.map(opt => repeatNum === 1 ? opt : `${opt} (Mẫu ${repeatNum})`),
+        answer: seed.answer,
+        explanation: `${seed.explanation} (Câu hỏi tự động trong ngân hàng)`
+      });
+      
+      currentIdx++;
+    }
+  }
+
+  return combined;
+}
+
 export function renderQBank(container) {
   const state = store.getState();
+  
+  // Default show answers to false if not set
+  if (window.qbankShowAnswers === undefined) {
+    window.qbankShowAnswers = false;
+  }
+  
+  const showAnswers = window.qbankShowAnswers;
+  const qList = getExtendedQuestionBank(state);
 
   container.innerHTML = `
-    <div class="view-header">
+    <div class="view-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; width: 100%;">
       <div class="view-title-group">
         <h1 class="view-title">Ngân hàng câu hỏi</h1>
-        <p class="view-subtitle" style="color: var(--text-muted);">Kho lưu trữ câu hỏi cá nhân giúp bạn chủ động thiết kế hoặc trộn đề nhanh chóng.</p>
+        <p class="view-subtitle" style="color: var(--text-muted);">Kho lưu trữ câu hỏi cá nhân giúp bạn chủ động thiết kế hoặc trộn đề nhanh chóng (gồm câu hỏi từ các đề thi đã làm và bộ câu hỏi mẫu).</p>
+      </div>
+      <div class="view-header-actions" style="margin-left: auto;">
+        <button class="btn ${showAnswers ? 'btn-primary' : 'btn-secondary'} btn-sm" id="btnToggleQBankAnswers" style="padding: 6px 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+          ${showAnswers ? '👁️ Ẩn Đáp Án & Lời Giải' : '👁️ Hiện Đáp Án & Lời Giải'}
+        </button>
       </div>
     </div>
 
@@ -1501,28 +2653,34 @@ export function renderQBank(container) {
     <div class="exam-detail-layout">
       <!-- Left side: Questions List -->
       <div class="exam-questions-panel">
-        <h2 style="font-family: var(--font-headings); font-size: 1.15rem;">Danh sách câu hỏi hiện tại (${state.qbank.length} câu)</h2>
+        <h2 style="font-family: var(--font-headings); font-size: 1.15rem;">Danh sách câu hỏi hiện tại (${qList.length} câu)</h2>
         
         <div id="qbankQuestionsList" style="display: flex; flex-direction: column; gap: 16px;">
-          ${state.qbank.map((q, idx) => `
-            <div class="question-item-card card">
+          ${qList.map((q, idx) => `
+            <div class="question-item-card card" style="transition: all 0.3s ease;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span class="suggested-tag" style="background-color: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem;">Môn: ${q.subject}</span>
                 <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">#${idx + 1}</span>
               </div>
-              <p class="question-text" style="font-size: 1rem; margin-top: 6px;">${q.text}</p>
+              <p class="question-text" style="font-size: 1rem; margin-top: 6px; font-weight: 600;">${q.text}</p>
               
-              <ul style="list-style: none; display: flex; flex-direction: column; gap: 6px; padding-left: 8px;">
-                ${q.options.map((opt, oIdx) => `
-                  <li style="font-size: 0.9rem; ${oIdx === q.answer ? 'color: #10b981; font-weight: 600;' : ''}">
-                    <strong>${String.fromCharCode(65 + oIdx)}.</strong> ${opt}
-                    ${oIdx === q.answer ? '✓' : ''}
-                  </li>
-                `).join('')}
+              <ul style="list-style: none; display: flex; flex-direction: column; gap: 8px; padding-left: 0; margin-top: 10px;">
+                ${q.options.map((opt, oIdx) => {
+                  const letter = String.fromCharCode(65 + oIdx);
+                  const isCorrect = oIdx === q.answer;
+                  const correctStyle = (isCorrect && showAnswers) ? 'color: #065f46; font-weight: 600; background-color: #d1fae5; border-color: #10b981; padding: 6px 12px; border-radius: var(--radius-md); border-left: 4px solid #10b981;' : '';
+                  return `
+                    <li style="font-size: 0.95rem; display: flex; align-items: center; gap: 6px; padding: 4px 0; ${correctStyle}">
+                      <strong>${letter}.</strong>
+                      <span>${opt}</span>
+                      ${(isCorrect && showAnswers) ? '<span style="color:#10b981; font-weight:bold; margin-left:6px;">✓</span>' : ''}
+                    </li>
+                  `;
+                }).join('')}
               </ul>
               
-              ${q.explanation ? `
-                <div class="question-explanation" style="font-size: 0.8rem; padding: 10px 14px; margin-top: 4px;">
+              ${(q.explanation && showAnswers) ? `
+                <div class="question-explanation" style="font-size: 0.85rem; padding: 10px 14px; margin-top: 10px; background-color: var(--bg-hover); border-left: 3px solid var(--text-muted); border-radius: 4px; font-style: italic;">
                   <strong>Giải thích:</strong> ${q.explanation}
                 </div>
               ` : ''}
@@ -1579,6 +2737,12 @@ export function renderQBank(container) {
     </div>
   `;
 
+  // Attach handlers
+  document.getElementById("btnToggleQBankAnswers").addEventListener("click", () => {
+    window.qbankShowAnswers = !window.qbankShowAnswers;
+    renderQBank(container);
+  });
+
   document.getElementById("formAddQuestionBank").addEventListener("submit", (e) => {
     e.preventDefault();
     
@@ -1600,7 +2764,7 @@ export function renderQBank(container) {
     });
 
     alert("Đã lưu câu hỏi mới vào ngân hàng thành công!");
-    window.refreshActiveView();
+    renderQBank(container);
   });
 }
 
@@ -1632,6 +2796,16 @@ export function renderSettings(container) {
             <label for="settingUserEmail">Địa chỉ Email <span class="required">*</span></label>
             <input type="email" id="settingUserEmail" value="${state.user.email}" disabled style="opacity: 0.6;" />
             <p class="form-hint">Email đăng nhập không thể thay đổi.</p>
+          </div>
+          <div class="form-group">
+            <label for="settingUserRole">Vai trò tài khoản <span class="required">*</span></label>
+            <div class="composer-select-wrapper">
+              <select id="settingUserRole" class="composer-select" style="min-width: 100%; padding: 10px 32px 10px 16px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background-color: var(--bg-input); color: var(--text-main);">
+                <option value="teacher" ${state.user.role === 'teacher' ? 'selected' : ''}>Giáo viên</option>
+                <option value="student" ${state.user.role === 'student' ? 'selected' : ''}>Học sinh</option>
+              </select>
+            </div>
+            <p class="form-hint">Chuyển đổi vai trò để xem giao diện dưới góc nhìn Giáo viên hoặc Học sinh.</p>
           </div>
           <button type="submit" class="btn btn-primary" style="align-self: flex-start;">
             Cập nhật hồ sơ
@@ -1741,10 +2915,12 @@ export function renderSettings(container) {
   document.getElementById("formUserSettings").addEventListener("submit", (e) => {
     e.preventDefault();
     const name = document.getElementById("settingUserName").value.trim();
+    const role = document.getElementById("settingUserRole").value;
     
-    store.updateUser({ name });
+    store.updateUser({ name, role });
     alert("Đã cập nhật hồ sơ cá nhân!");
     window.refreshUserProfileWidget();
+    window.refreshActiveView();
     
     const greeting = document.getElementById("homeUserGreeting");
     if (greeting) greeting.innerText = name;
@@ -1979,4 +3155,65 @@ export function renderGuide(container) {
       </div>
     </div>
   `;
+}
+
+// --------------------------------------------------------------------------
+// 7. FILE READER HELPER FUNCTIONS
+// --------------------------------------------------------------------------
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+async function extractTextFromPDF(arrayBuffer) {
+  const pdfjs = typeof pdfjsLib !== "undefined" ? pdfjsLib : window['pdfjs-dist/build/pdf'];
+  if (!pdfjs) throw new Error("Thư viện PDF.js chưa được tải xong, vui lòng thử lại sau!");
+  
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  
+  const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  let fullText = "";
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(" ");
+    fullText += pageText + "\n";
+  }
+  return fullText;
+}
+
+function extractTextFromDocx(arrayBuffer) {
+  return new Promise((resolve, reject) => {
+    if (typeof mammoth === "undefined") {
+      reject(new Error("Thư viện Mammoth.js chưa được tải xong, vui lòng thử lại sau!"));
+      return;
+    }
+    mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+      .then(result => resolve(result.value))
+      .catch(err => reject(err));
+  });
 }

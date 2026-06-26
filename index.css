@@ -2449,5 +2449,74 @@ body.sidebar-open {
   color: #ef4444;
 }
 
+/* Sidebar Submenu styles */
+.sidebar-submenu {
+  list-style: none;
+  padding-left: 28px;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.submenu-item {
+  font-size: 0.82rem;
+  padding: 6px 12px;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: block;
+  font-weight: 500;
+}
+
+.submenu-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.submenu-item.active {
+  background: var(--bg-hover) !important;
+  color: var(--text-main) !important;
+  font-weight: 700;
+  border-left: 3px solid #0072ff;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding-left: 9px;
+}
+
+.nav-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.nav-item.active .chevron-icon {
+  transform: rotate(180deg);
+}
+
+/* Sidebar auto-generate spark button styling */
+.btn-auto-generate {
+  opacity: 0.3;
+  transition: opacity 0.2s, transform 0.2s, color 0.2s;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.submenu-item:hover .btn-auto-generate {
+  opacity: 0.8;
+}
+
+.btn-auto-generate:hover {
+  opacity: 1 !important;
+  color: #0072ff !important;
+  background: rgba(0, 114, 255, 0.08);
+  transform: scale(1.15);
+}
 
 

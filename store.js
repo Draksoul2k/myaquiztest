@@ -13,11 +13,12 @@ const DEFAULT_STATE = {
     googleClientId: "591954709167-dgup0n03seg81grv7ht3t4o5m9osgd0u.apps.googleusercontent.com",
     avatarUrl: "",
     createdAt: "",
-    proExpiredAt: ""
+    proExpiredAt: "",
+    role: "teacher"
   },
   // Registered users for email/password auth simulation
   users: [
-    { email: "dalk2000vtp@gmail.com", password: "123", name: "Thìn Nguyễn", plan: "Trial", createdAt: "", proExpiredAt: "" }
+    { email: "dalk2000vtp@gmail.com", password: "123", name: "Thìn Nguyễn", plan: "Trial", createdAt: "", proExpiredAt: "", role: "teacher" }
   ],
   classes: [
     { id: "c1", name: "Lớp 12A1 - Toán Giải Tích", subject: "Toán", desc: "Lớp ôn thi THPT Quốc Gia" },
@@ -141,6 +142,12 @@ export function getState() {
     state.user.googleClientId = DEFAULT_STATE.user.googleClientId;
     saveState(state);
   }
+
+  // Role migration for existing state
+  if (state.user && !state.user.role) {
+    state.user.role = "teacher";
+    saveState(state);
+  }
   return state;
 }
 
@@ -150,12 +157,15 @@ export function saveState(state) {
 }
 
 // Authentication Helpers
-export function login(email, password) {
+export function login(email, password, role) {
   const state = getState();
   const matchedUser = state.users.find(u => u.email === email && u.password === password);
   if (matchedUser) {
     state.isLoggedIn = true;
     const nowStr = new Date().toISOString();
+    if (role) {
+      matchedUser.role = role;
+    }
     state.user = {
       ...state.user,
       name: matchedUser.name,
@@ -163,7 +173,8 @@ export function login(email, password) {
       plan: matchedUser.plan || "Trial",
       theme: state.user.theme || "light",
       createdAt: matchedUser.createdAt || state.user.createdAt || nowStr,
-      proExpiredAt: matchedUser.proExpiredAt || state.user.proExpiredAt || ""
+      proExpiredAt: matchedUser.proExpiredAt || state.user.proExpiredAt || "",
+      role: matchedUser.role || "teacher"
     };
     saveState(state);
     return true;
@@ -171,7 +182,7 @@ export function login(email, password) {
   return false;
 }
 
-export function loginGoogle(email, name, avatarUrl) {
+export function loginGoogle(email, name, avatarUrl, role) {
   const state = getState();
   state.isLoggedIn = true;
   
@@ -184,7 +195,8 @@ export function loginGoogle(email, name, avatarUrl) {
     avatarUrl: avatarUrl || "",
     plan: state.user.plan || "Trial",
     createdAt: state.user.createdAt || nowStr,
-    proExpiredAt: state.user.proExpiredAt || ""
+    proExpiredAt: state.user.proExpiredAt || "",
+    role: role || state.user.role || "teacher"
   };
 
   // Add to simulated database list if they don't exist yet
@@ -197,20 +209,25 @@ export function loginGoogle(email, name, avatarUrl) {
       password: "google_account", // mock
       avatarUrl: avatarUrl || "",
       createdAt: nowStr,
-      proExpiredAt: ""
+      proExpiredAt: "",
+      role: role || "teacher"
     });
   } else {
+    if (role) {
+      userInList.role = role;
+    }
     // Sync list values to active user if they already exist
     state.user.plan = userInList.plan || "Trial";
     state.user.createdAt = userInList.createdAt || nowStr;
     state.user.proExpiredAt = userInList.proExpiredAt || "";
+    state.user.role = userInList.role || "teacher";
   }
 
   saveState(state);
   return state.user;
 }
 
-export function register(name, email, password) {
+export function register(name, email, password, role) {
   const state = getState();
   const exists = state.users.some(u => u.email === email);
   if (exists) {
@@ -225,7 +242,8 @@ export function register(name, email, password) {
     password, 
     plan: "Trial", 
     createdAt: nowStr, 
-    proExpiredAt: "" 
+    proExpiredAt: "",
+    role: role || "teacher"
   };
   state.users.push(newUser);
 
@@ -238,7 +256,8 @@ export function register(name, email, password) {
     plan: newUser.plan,
     theme: state.user.theme || "light",
     createdAt: nowStr,
-    proExpiredAt: ""
+    proExpiredAt: "",
+    role: newUser.role
   };
 
   saveState(state);
@@ -334,6 +353,10 @@ export function addExam(exam) {
     id: "e_" + Date.now(),
     title: exam.title,
     subject: exam.subject,
+    grade: exam.grade || null,
+    duration: exam.duration || 15,
+    difficulty: exam.difficulty || "Trung bình",
+    examType: exam.examType || "Đề kiểm tra",
     created: new Date().toISOString(),
     questionsCount: exam.questions.length,
     author: state.user.name,

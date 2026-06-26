@@ -1,5 +1,7 @@
-import * as store from './store.js?v=1.2';
-import * as views from './views.js?v=1.2';
+import * as store from './store.js?v=1.3';
+import * as views from './views.js?v=1.3';
+
+window.activeExamFilter = null;
 
 // DOM containers
 const appContainer = document.getElementById("appContainer");
@@ -210,7 +212,7 @@ function renderUserProfileWidget() {
   // Sidebar badge update
   if (planBadge) {
     if (sub.plan === "Pro") {
-      planBadge.innerText = `Pro (Còn ${sub.daysRemaining} ngày)`;
+      planBadge.innerText = "PRO";
       planBadge.className = "user-badge pro";
     } else if (sub.plan === "Trial") {
       planBadge.innerText = `Dùng thử (Còn ${sub.daysRemaining} ngày)`;
@@ -253,6 +255,28 @@ function renderUserProfileWidget() {
       if (dropdownExpireRow) dropdownExpireRow.style.display = "flex";
     }
   }
+
+  // Role Badge and Sidebar Label Updates
+  const sidebarExamsText = document.getElementById("sidebarExamsText");
+  if (sidebarExamsText) {
+    sidebarExamsText.innerText = state.user.role === "student" ? "Đề ôn tập" : "Đề thi";
+  }
+
+  const userRoleBadge = document.getElementById("userRoleBadge");
+  const dropdownRoleBadge = document.getElementById("dropdownRoleBadge");
+  const isStudent = state.user.role === "student";
+
+  if (userRoleBadge) {
+    userRoleBadge.innerText = isStudent ? "Học sinh" : "Giáo viên";
+    userRoleBadge.style.backgroundColor = isStudent ? "rgba(14, 165, 233, 0.15)" : "rgba(16, 185, 129, 0.15)";
+    userRoleBadge.style.color = isStudent ? "#0ea5e9" : "#10b981";
+  }
+
+  if (dropdownRoleBadge) {
+    dropdownRoleBadge.innerText = isStudent ? "Học sinh" : "Giáo viên";
+    dropdownRoleBadge.style.backgroundColor = isStudent ? "rgba(14, 165, 233, 0.15)" : "rgba(16, 185, 129, 0.15)";
+    dropdownRoleBadge.style.color = isStudent ? "#0ea5e9" : "#10b981";
+  }
 }
 
 // Render sidebar classes list
@@ -287,16 +311,46 @@ function renderSidebarClasses() {
 
 // Navigation items click handling
 function setupNavigation() {
+  const examsMenu = document.getElementById("sidebarExamsMenu");
+  const submenu = examsMenu ? examsMenu.querySelector(".sidebar-submenu") : null;
+  const chevron = examsMenu ? examsMenu.querySelector(".chevron-icon") : null;
+
   navItems.forEach(item => {
-    item.addEventListener("click", () => {
+    item.addEventListener("click", (e) => {
+      // If clicked inside the submenu, don't trigger the main menu handler
+      if (e.target.closest(".sidebar-submenu")) return;
+
       navItems.forEach(n => n.classList.remove("active"));
       item.classList.add("active");
+      
+      // Clear active from all submenu items
+      document.querySelectorAll(".submenu-item").forEach(subItem => subItem.classList.remove("active"));
       
       activeView = item.getAttribute("data-view");
 
       // Reset exams active state if going back to list
       if (activeView !== "exams") {
         window.currentExamDetailId = null;
+      }
+
+      // Handle sidebar submenu collapse/expand
+      if (item.id === "sidebarExamsMenu") {
+        window.activeExamFilter = null; // Clear subject filter
+        if (submenu) {
+          const isHidden = submenu.style.display === "none" || submenu.style.display === "";
+          submenu.style.display = isHidden ? "block" : "none";
+          if (chevron) {
+            chevron.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+          }
+        }
+      } else {
+        // Hide submenu when navigating to other views
+        if (submenu) {
+          submenu.style.display = "none";
+          if (chevron) {
+            chevron.style.transform = "rotate(0deg)";
+          }
+        }
       }
 
       renderView(activeView);
@@ -309,13 +363,51 @@ function setupNavigation() {
     });
   });
 
+  // Handle submenu item clicks
+  document.querySelectorAll(".submenu-item").forEach(subItem => {
+    subItem.addEventListener("click", (e) => {
+      e.stopPropagation(); // Stop propagation to parent menu item click
+      
+      // Highlight submenu item
+      document.querySelectorAll(".submenu-item").forEach(si => si.classList.remove("active"));
+      subItem.classList.add("active");
+      
+      // Highlight parent nav-item
+      navItems.forEach(n => n.classList.remove("active"));
+      if (examsMenu) examsMenu.classList.add("active");
+      
+      const subject = subItem.getAttribute("data-subject");
+      const grade = parseInt(subItem.getAttribute("data-grade"), 10);
+      
+      window.activeExamFilter = { subject, grade };
+      window.currentExamDetailId = null; // Reset detailed view
+      
+      activeView = "exams";
+      renderView("exams");
+      
+      // Close sidebar on mobile
+      if (sidebar && sidebar.classList.contains("show")) {
+        sidebar.classList.remove("show");
+        document.body.classList.remove("sidebar-open");
+      }
+    });
+  });
+
   // Bottom user profile widget click routes to settings
   if (userProfileWidget) {
     userProfileWidget.addEventListener("click", () => {
-      navItems.forEach(n => {
-        if (n.getAttribute("data-view") === "settings") n.classList.add("active");
-        else n.classList.remove("active");
-      });
+      navItems.forEach(n => n.classList.remove("active"));
+      document.querySelectorAll(".submenu-item").forEach(si => si.classList.remove("active"));
+      if (submenu) {
+        submenu.style.display = "none";
+        if (chevron) {
+          chevron.style.transform = "rotate(0deg)";
+        }
+      }
+      
+      const settingsItem = Array.from(navItems).find(n => n.getAttribute("data-view") === "settings");
+      if (settingsItem) settingsItem.classList.add("active");
+      
       activeView = "settings";
       renderView("settings");
     });
