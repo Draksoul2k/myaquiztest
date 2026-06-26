@@ -143,6 +143,12 @@ export function getState() {
     saveState(state);
   }
 
+  // Temporary shared Gemini API key for all users during trial (until July 1st, 2026)
+  if (state.user && !state.user.geminiApiKey) {
+    state.user.geminiApiKey = atob("QVEuQWI4Uk42TGlIU3lKTkJTQXVxSVJEdUd5cXUyX1k3cDRUcXlwUVNkSTR4WlhIVmZ3dGc=");
+    saveState(state);
+  }
+
   // Role migration for existing state
   if (state.user && !state.user.role) {
     state.user.role = "teacher";
