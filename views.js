@@ -115,7 +115,7 @@ export function decodeJwt(token) {
 }
 
 // State tracker for active navigation
-let currentExamDetailId = null;
+window.currentExamDetailId = null;
 let quizState = null; // { examId, answers: {}, submitted: false }
 
 // Helper function to format date
@@ -1132,7 +1132,7 @@ Hãy viết toàn bộ câu hỏi và phương án, lời giải bằng Tiếng 
 }
 
 function navigateToExamDetail(examId) {
-  currentExamDetailId = examId;
+  window.currentExamDetailId = examId;
   const sidebarItem = document.querySelector('.nav-item[data-view="exams"]');
   if (sidebarItem) {
     window.setActiveSidebar(sidebarItem);
@@ -1453,17 +1453,17 @@ export function renderExams(container) {
   const state = store.getState();
 
   // If a specific exam detail is active, render that instead
-  if (currentExamDetailId) {
-    const exam = state.exams.find(e => e.id === currentExamDetailId);
+  if (window.currentExamDetailId) {
+    const exam = state.exams.find(e => e.id === window.currentExamDetailId);
     if (exam) {
-      if (quizState && quizState.examId === currentExamDetailId) {
+      if (quizState && quizState.examId === window.currentExamDetailId) {
         renderQuizMode(container, exam);
       } else {
         renderExamDetail(container, exam);
       }
       return;
     } else {
-      currentExamDetailId = null; // Clear if not found
+      window.currentExamDetailId = null; // Clear if not found
     }
   }
 
@@ -1665,7 +1665,7 @@ export function renderExams(container) {
     card.addEventListener("click", (e) => {
       if (e.target.classList.contains("btn-delete-exam")) return;
       const examId = card.getAttribute("data-exam-id");
-      currentExamDetailId = examId;
+      window.currentExamDetailId = examId;
       window.refreshActiveView();
     });
   });
@@ -1823,7 +1823,7 @@ function renderExamDetail(container, exam) {
 
   // Attach handlers
   document.getElementById("btnBackToExams").addEventListener("click", () => {
-    currentExamDetailId = null;
+    window.currentExamDetailId = null;
     window.refreshActiveView();
   });
 
@@ -1831,7 +1831,7 @@ function renderExamDetail(container, exam) {
   document.getElementById("btnDeleteExamDetail").addEventListener("click", () => {
     if (confirm("Xóa vĩnh viễn đề thi này?")) {
       store.removeExam(exam.id);
-      currentExamDetailId = null;
+      window.currentExamDetailId = null;
       window.refreshActiveView();
     }
   });
