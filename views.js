@@ -1141,7 +1141,7 @@ Mỗi phần tử (Object) trong mảng phải có cấu trúc chính xác như 
   "explanation": "Giải thích chi tiết vì sao đáp án đó đúng bằng tiếng Việt"
 }
 ${isEnglish ? 
-  'Vì đây là đề thi môn Tiếng Anh (English), toàn bộ nội dung câu hỏi ("text") và các phương án lựa chọn ("options") BẮT BUỘC phải được viết 100% bằng Tiếng Anh. Phần giải thích lý do đáp án đúng ("explanation") vẫn viết bằng Tiếng Việt để học sinh dễ hiểu.' : 
+  'Vì đây là đề thi môn Tiếng Anh (English), bạn BẮT BUỘC phải phân bổ khoảng 20% đến 30% số lượng câu hỏi trong bộ đề dưới dạng dịch thuật hoặc kiểm tra nghĩa từ vựng (ở các câu này: câu hỏi "text" viết chỉ dẫn bằng Tiếng Việt như "Dịch câu sau...", "Từ sau đây có nghĩa là gì...", và 4 phương án lựa chọn "options" viết bằng Tiếng Việt). 70% đến 80% số câu hỏi còn lại là các câu hỏi ngữ pháp, đọc hiểu hoặc phát âm với câu hỏi và phương án "options" viết 100% bằng Tiếng Anh. Phần giải thích đáp án đúng ("explanation") luôn viết bằng Tiếng Việt.' : 
   'Hãy viết toàn bộ câu hỏi và phương án, lời giải bằng Tiếng Việt.'
 }`;
 
