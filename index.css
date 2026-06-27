@@ -2544,4 +2544,49 @@ body.sidebar-open {
   transform: scale(1.15);
 }
 
+/* AI Generation Modal Specific Styles */
+.ai-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  overflow-y: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ai-modal-content {
+  position: relative;
+  z-index: 10000;
+  width: 100%;
+  max-width: 580px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 480px) {
+  .ai-modal-backdrop {
+    padding: 8px 12px;
+  }
+  .ai-modal-content {
+    margin-top: 8px;
+    margin-bottom: 12px;
+    border-radius: var(--radius-md);
+  }
+}
+
 

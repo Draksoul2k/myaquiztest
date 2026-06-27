@@ -1280,9 +1280,9 @@ export function openAutoGenerateModal(subject, grade) {
   modal.className = "modal show";
   
   modal.innerHTML = `
-    <div class="modal-backdrop show" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); z-index: 9999; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: 20px 16px; -webkit-overflow-scrolling: touch;">
+    <div class="modal-backdrop show ai-modal-backdrop">
       <div class="modal-backdrop-click-target" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; cursor: pointer;"></div>
-      <div class="modal-content" style="position: relative; z-index: 10000; width: 100%; max-width: 580px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; margin: auto; margin-top: 20px; margin-bottom: 20px;">
+      <div class="modal-content ai-modal-content">
         <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 18px 24px;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--primary));"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
