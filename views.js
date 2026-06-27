@@ -851,10 +851,16 @@ function startSimulatedAIGeneration(subjectKey, promptText) {
       
       // Determine difficulty
       let difficulty = "Trung bình";
-      if (lowerPrompt.includes("khó") || lowerPrompt.includes("nâng cao") || lowerPrompt.includes("giỏi")) {
-        difficulty = "Khó";
-      } else if (lowerPrompt.includes("dễ") || lowerPrompt.includes("cơ bản")) {
-        difficulty = "Dễ";
+      const diffMatch = promptText.match(/Độ khó:\s*([^\n\r.]+)/i);
+      if (diffMatch) {
+        difficulty = diffMatch[1].trim();
+      } else {
+        const cleanPrompt = lowerPrompt.replace(/độ khó/g, "");
+        if (cleanPrompt.includes("khó") || cleanPrompt.includes("nâng cao") || cleanPrompt.includes("giỏi")) {
+          difficulty = "Khó";
+        } else if (cleanPrompt.includes("dễ") || cleanPrompt.includes("cơ bản")) {
+          difficulty = "Dễ";
+        }
       }
 
       // Format title: "Đề thi môn Toán Lớp 5 (15 phút)"

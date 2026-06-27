@@ -1,5 +1,5 @@
 import * as store from './store.js?v=1.6';
-import * as views from './views.js?v=1.8';
+import * as views from './views.js?v=1.9';
 
 window.activeExamFilter = null;
 
