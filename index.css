@@ -70,13 +70,21 @@
   padding: 0;
 }
 
+html, body {
+  height: 100%;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--bg-app);
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
@@ -106,8 +114,10 @@ input, textarea, button {
    AUTHENTICATION SCREEN STYLES
    ========================================================================== */
 .auth-viewport {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -244,8 +254,11 @@ input, textarea, button {
    ========================================================================== */
 .app-container {
   display: flex;
-  min-height: 100vh;
+  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   position: relative;
+  overflow: hidden;
 }
 
 /* Sidebar Styling */
@@ -534,7 +547,9 @@ input, textarea, button {
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
-  min-height: 100vh;
+  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background-color: transparent;
@@ -542,6 +557,8 @@ input, textarea, button {
   min-width: 0;
   width: 100%;
   max-width: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Mobile Header */
