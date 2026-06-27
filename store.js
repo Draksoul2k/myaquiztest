@@ -383,6 +383,26 @@ export function addExam(exam) {
     }))
   };
   state.exams.push(newExam);
+
+  // Sync new questions to question bank (qbank) if not already exists
+  if (exam.questions && Array.isArray(exam.questions)) {
+    exam.questions.forEach((q, idx) => {
+      const qTextClean = q.text.trim().toLowerCase();
+      const exists = state.qbank.some(qbQ => qbQ.text.trim().toLowerCase() === qTextClean);
+      if (!exists) {
+        state.qbank.push({
+          id: "q_" + Date.now() + "_" + idx + "_" + Math.floor(Math.random() * 100),
+          text: q.text,
+          subject: exam.subject || "Toán",
+          grade: exam.grade || null,
+          options: q.options,
+          answer: parseInt(q.answer, 10),
+          explanation: q.explanation || ""
+        });
+      }
+    });
+  }
+
   saveState(state);
   return newExam;
 }

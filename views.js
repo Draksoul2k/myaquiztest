@@ -1,4 +1,4 @@
-import * as store from './store.js';
+import * as store from './store.js?v=1.7';
 
 // Pre-defined exam templates for AI generation fallback if API Key is missing
 const MOCK_EXAM_TEMPLATES = {
