@@ -1840,22 +1840,31 @@ input:checked + .slider:before {
   
   @media (max-width: 480px) {
     .auth-card {
-      padding: 20px 16px;
-      gap: 14px;
+      padding: 16px 14px;
+      gap: 12px;
       margin: auto;
     }
     .auth-brand {
-      font-size: 1.45rem !important;
+      font-size: 1.35rem !important;
     }
     .auth-subtitle {
-      font-size: 0.8rem !important;
+      font-size: 0.75rem !important;
     }
     .auth-form {
-      gap: 12px !important;
+      gap: 10px !important;
     }
     .auth-logo-area svg {
-      width: 30px !important;
-      height: 30px !important;
+      width: 26px !important;
+      height: 26px !important;
+    }
+    .role-selector-card {
+      padding: 8px !important;
+    }
+    .role-selector-card span {
+      font-size: 0.8rem !important;
+    }
+    .role-selector-card span:last-child {
+      font-size: 0.65rem !important;
     }
   }
   
