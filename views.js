@@ -979,7 +979,9 @@ async function callGeminiAPI(apiKeyStr, promptText, config = {}) {
           return {
             ok: true,
             data: data,
-            modelUsed: `${model.version}/${model.name} (Key #${keyIndex})`
+            modelUsed: `${model.version}/${model.name}`,
+            successKeyIndex: keyIndex,
+            errorsBeforeSuccess: [...errors]
           };
         } else {
           const errJson = await res.json().catch(() => ({}));
@@ -3028,9 +3030,21 @@ export function renderSettings(container) {
       btnTestGemini.innerText = "Kiểm tra kết nối";
       btnTestGemini.disabled = false;
       geminiTestResult.style.display = "block";
-      geminiTestResult.style.backgroundColor = "#dcfce7";
-      geminiTestResult.style.color = "#166534";
-      geminiTestResult.innerText = `✓ Kết nối thành công! API Key hoạt động hoàn hảo bằng mô hình: ${result.modelUsed}.`;
+      
+      let alertHtml = `✓ Kết nối thành công bằng Key #${result.successKeyIndex}! (Mô hình: ${result.modelUsed})<br>`;
+      if (result.errorsBeforeSuccess && result.errorsBeforeSuccess.length > 0) {
+        geminiTestResult.style.backgroundColor = "#fffbeb";
+        geminiTestResult.style.color = "#b45309";
+        alertHtml += `<div style="margin-top: 6px; font-size: 0.8rem; border-top: 1px dashed #f59e0b; padding-top: 6px; text-align: left;">`;
+        result.errorsBeforeSuccess.forEach(err => {
+          alertHtml += `⚠️ ${err}<br>`;
+        });
+        alertHtml += `</div>`;
+      } else {
+        geminiTestResult.style.backgroundColor = "#dcfce7";
+        geminiTestResult.style.color = "#166534";
+      }
+      geminiTestResult.innerHTML = alertHtml;
     } catch (err) {
       btnTestGemini.innerText = "Kiểm tra kết nối";
       btnTestGemini.disabled = false;
