@@ -909,14 +909,8 @@ function startSimulatedAIGeneration(subjectKey, promptText) {
 
 async function callGeminiAPI(apiKey, promptText, config = {}) {
   const models = [
-    { name: "gemini-flash-latest", version: "v1beta" },
-    { name: "gemini-flash-latest", version: "v1" },
-    { name: "gemini-2.5-flash", version: "v1beta" },
-    { name: "gemini-2.5-flash", version: "v1" },
     { name: "gemini-2.0-flash", version: "v1beta" },
     { name: "gemini-2.0-flash", version: "v1" },
-    { name: "gemini-3.5-flash", version: "v1beta" },
-    { name: "gemini-3.5-flash", version: "v1" },
     { name: "gemini-1.5-flash", version: "v1beta" },
     { name: "gemini-1.5-flash", version: "v1" }
   ];
@@ -935,13 +929,25 @@ async function callGeminiAPI(apiKey, promptText, config = {}) {
         payload.generationConfig = config;
       }
       
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
       });
+
+      // If rate limited (429), pause 2 seconds and retry once
+      if (res.status === 429) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }
 
       if (res.ok) {
         const data = await res.json();
@@ -976,6 +982,41 @@ async function callGeminiAPI(apiKey, promptText, config = {}) {
     }
   } catch (diagErr) {
     throw new Error(`Lỗi kết nối hoặc chẩn đoán thất bại: ${diagErr.message}. Chi tiết lỗi thử nghiệm: ${errors.join("; ")}`);
+  }
+}
+
+function robustJSONParse(str) {
+  let clean = str.trim();
+  
+  // Remove markdown code block markers
+  if (clean.startsWith("```")) {
+    clean = clean.replace(/^```json/, "").replace(/^```/, "").replace(/```$/, "").trim();
+  }
+  
+  try {
+    return JSON.parse(clean);
+  } catch (e) {
+    // Fallback 1: Extract array content between first [ and last ]
+    const startIdx = clean.indexOf("[");
+    const endIdx = clean.lastIndexOf("]");
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      const arrayStr = clean.substring(startIdx, endIdx + 1);
+      try {
+        return JSON.parse(arrayStr);
+      } catch (e2) {
+        // Fallback 2: Clean trailing commas inside arrays and objects
+        let fixedStr = arrayStr
+          .replace(/,\s*\]/g, "]")
+          .replace(/,\s*\}/g, "}");
+        try {
+          return JSON.parse(fixedStr);
+        } catch (e3) {
+          console.error("Robust JSON Parsing failed:", e3);
+          throw new Error("Dữ liệu câu hỏi từ AI không đúng định dạng JSON chuẩn.");
+        }
+      }
+    }
+    throw e;
   }
 }
 
@@ -1055,14 +1096,7 @@ Hãy viết toàn bộ câu hỏi và phương án, lời giải bằng Tiếng 
     stepText.innerText = "Đang nhận dữ liệu và phân tích cấu trúc đề thi...";
 
     const textResponse = result.data.candidates[0].content.parts[0].text;
-    
-    // Clean potential markdown blocks
-    let cleanJson = textResponse.trim();
-    if (cleanJson.startsWith("```")) {
-      cleanJson = cleanJson.replace(/^```json/, "").replace(/^```/, "").replace(/```$/, "").trim();
-    }
-
-    const questions = JSON.parse(cleanJson);
+    const questions = robustJSONParse(textResponse);
 
     progressFill.style.width = "95%";
     stepText.innerText = "Đang lưu đề thi vào Thư viện của bạn...";
