@@ -1050,6 +1050,7 @@ export function startActualGeminiGeneration(apiKey, promptText, subjectKey, file
   const progressFill = document.getElementById("aiProgressFill");
 
   // Construct Gemini System Instruct Prompt
+  const isEnglish = subjectKey === "tienganh";
   const finalPromptText = `Bạn là một chuyên gia khảo thí giáo dục hàng đầu. Hãy soạn một bộ đề thi trắc nghiệm chi tiết dựa trên nội dung/yêu cầu sau từ người dùng: "${promptText}".
 YÊU CẦU QUAN TRỌNG VỀ ĐỘ CHÍNH XÁC KIẾN THỨC:
 1. Tuyệt đối không được tự bịa đặt (hallucinate) thông tin hay kiến thức giả. Tất cả câu hỏi, phương án lựa chọn và giải thích đáp án phải chính xác 100% về mặt khoa học, lịch sử, thực tế đời sống hoặc logic học thuật.
@@ -1064,7 +1065,10 @@ Mỗi phần tử (Object) trong mảng phải có cấu trúc chính xác như 
   "answer": 0, // chỉ số của đáp án đúng (từ 0 đến 3)
   "explanation": "Giải thích chi tiết vì sao đáp án đó đúng bằng tiếng Việt"
 }
-Hãy viết toàn bộ câu hỏi và phương án, lời giải bằng Tiếng Việt.`;
+${isEnglish ? 
+  'Vì đây là đề thi môn Tiếng Anh (English), toàn bộ nội dung câu hỏi ("text") và các phương án lựa chọn ("options") BẮT BUỘC phải được viết 100% bằng Tiếng Anh. Phần giải thích lý do đáp án đúng ("explanation") vẫn viết bằng Tiếng Việt để học sinh dễ hiểu.' : 
+  'Hãy viết toàn bộ câu hỏi và phương án, lời giải bằng Tiếng Việt.'
+}`;
 
   // Build multimodal parts if images are attached
   let promptPayload = finalPromptText;
