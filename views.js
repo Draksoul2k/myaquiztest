@@ -907,81 +907,108 @@ function startSimulatedAIGeneration(subjectKey, promptText) {
   setTimeout(runStep, 400);
 }
 
-async function callGeminiAPI(apiKey, promptText, config = {}) {
+async function callGeminiAPI(apiKeyStr, promptText, config = {}) {
+  const apiKeys = apiKeyStr.split(",").map(k => k.trim()).filter(Boolean);
+  if (apiKeys.length === 0) {
+    throw new Error("Không tìm thấy Google Gemini API Key nào trong cấu hình.");
+  }
+
   const models = [
     { name: "gemini-2.0-flash", version: "v1beta" },
     { name: "gemini-2.0-flash", version: "v1" },
+    { name: "gemini-flash-latest", version: "v1beta" },
+    { name: "gemini-flash-latest", version: "v1" },
     { name: "gemini-1.5-flash", version: "v1beta" },
     { name: "gemini-1.5-flash", version: "v1" }
   ];
 
   let errors = [];
+  let keyIndex = 0;
 
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${apiKey}`;
-      const payload = {
-        contents: [{
-          parts: Array.isArray(promptText) ? promptText : [{ text: promptText }]
-        }]
-      };
-      if (Object.keys(config).length > 0) {
-        payload.generationConfig = config;
-      }
-      
-      let res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      // If rate limited (429), pause 2 seconds and retry once
-      if (res.status === 429) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        res = await fetch(url, {
+  for (const apiKey of apiKeys) {
+    keyIndex++;
+    let keyErrors = [];
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${apiKey}`;
+        const payload = {
+          contents: [{
+            parts: Array.isArray(promptText) ? promptText : [{ text: promptText }]
+          }]
+        };
+        if (Object.keys(config).length > 0) {
+          const adjustedConfig = {};
+          for (const [key, val] of Object.entries(config)) {
+            if (model.version === "v1") {
+              // v1 expects snake_case for REST payloads
+              if (key === "responseMimeType") adjustedConfig["response_mime_type"] = val;
+              else if (key === "responseSchema") adjustedConfig["response_schema"] = val;
+              else adjustedConfig[key] = val;
+            } else {
+              // v1beta expects camelCase for REST payloads
+              if (key === "response_mime_type") adjustedConfig["responseMimeType"] = val;
+              else if (key === "response_schema") adjustedConfig["responseSchema"] = val;
+              else adjustedConfig[key] = val;
+            }
+          }
+          payload.generationConfig = adjustedConfig;
+        }
+        
+        let res = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify(payload)
         });
-      }
 
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          ok: true,
-          data: data,
-          modelUsed: `${model.version}/${model.name}`
-        };
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        const msg = errJson.error?.message || `HTTP ${res.status}`;
-        errors.push(`${model.name} (${model.version}) thất bại: ${msg}`);
+        // If rate limited (429), pause 2 seconds and retry once
+        if (res.status === 429) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          return {
+            ok: true,
+            data: data,
+            modelUsed: `${model.version}/${model.name} (Key #${keyIndex})`
+          };
+        } else {
+          const errJson = await res.json().catch(() => ({}));
+          const msg = errJson.error?.message || `HTTP ${res.status}`;
+          keyErrors.push(`${model.name} (${model.version}) thất bại: ${msg}`);
+        }
+      } catch (err) {
+        keyErrors.push(`${model.name} (${model.version}) lỗi kết nối: ${err.message}`);
       }
-    } catch (err) {
-      errors.push(`${model.name} (${model.version}) lỗi kết nối: ${err.message}`);
     }
+    errors.push(`[Key #${keyIndex} thất bại] Chi tiết: ${keyErrors.join(" | ")}`);
   }
 
-  // Diagnostic ListModels check
+  // Diagnostic ListModels check using the last key
+  const lastKey = apiKeys[apiKeys.length - 1];
   try {
-    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${lastKey}`;
     const listRes = await fetch(listUrl);
     if (listRes.ok) {
       const listData = await listRes.json();
       const availableModels = listData.models?.map(m => m.name.replace("models/", "")).join(", ") || "None";
-      const errorDetails = errors.join("; ");
-      throw new Error(`Tất cả các mô hình thử nghiệm đều thất bại. Các mô hình khả dụng cho API Key của bạn là: ${availableModels}. Chi tiết lỗi thử nghiệm: ${errorDetails}`);
+      throw new Error(`Tất cả các API Key cấu hình đều thất bại. Các mô hình khả dụng cho API Key của bạn là: ${availableModels}. Chi tiết thử nghiệm: ${errors.join("; ")}`);
     } else {
       const errJson = await listRes.json().catch(() => ({}));
       const msg = errJson.error?.message || `HTTP ${listRes.status}`;
-      throw new Error(`Dự án của bạn chưa được cấp phép hoặc API Key bị hạn chế: ${msg}. Chi tiết lỗi thử nghiệm: ${errors.join("; ")}`);
+      throw new Error(`Tất cả các API Key đều hết hạn ngạch hoặc không hợp lệ: ${msg}. Chi tiết thử nghiệm: ${errors.join("; ")}`);
     }
   } catch (diagErr) {
-    throw new Error(`Lỗi kết nối hoặc chẩn đoán thất bại: ${diagErr.message}. Chi tiết lỗi thử nghiệm: ${errors.join("; ")}`);
+    throw new Error(`Tất cả các API Key đều hết hạn ngạch hoặc lỗi kết nối: ${diagErr.message}. Chi tiết thử nghiệm: ${errors.join("; ")}`);
   }
 }
 
@@ -2877,10 +2904,10 @@ export function renderSettings(container) {
         <div class="form-group">
           <label for="settingGeminiApiKey">Google Gemini API Key</label>
           <div style="display: flex; gap: 8px;">
-            <input type="password" id="settingGeminiApiKey" value="${state.user.geminiApiKey || ''}" placeholder="Nhập API Key lấy từ Google AI Studio..." style="flex: 1;" />
+            <input type="password" id="settingGeminiApiKey" value="${state.user.geminiApiKey || ''}" placeholder="Nhập một hoặc nhiều API Key, cách nhau bằng dấu phẩy (Ví dụ: key1, key2)..." style="flex: 1;" />
             <button class="btn btn-secondary" id="btnTestGeminiKey" style="white-space: nowrap; padding: 10px 14px;">Kiểm tra kết nối</button>
           </div>
-          <p class="form-hint">Dùng để tạo đề trắc nghiệm thật không giới hạn. Nhận Key miễn phí tại <a href="https://aistudio.google.com/" target="_blank" style="color: hsl(var(--primary)); font-weight:600; text-decoration: underline;">Google AI Studio</a>.</p>
+          <p class="form-hint">Dùng để tạo đề trắc nghiệm thật không giới hạn. Có thể nhập nhiều Key ngăn cách bằng dấu phẩy để tự động xoay vòng chống nghẽn. Nhận Key miễn phí tại <a href="https://aistudio.google.com/" target="_blank" style="color: hsl(var(--primary)); font-weight:600; text-decoration: underline;">Google AI Studio</a>.</p>
           <div id="geminiTestResult" style="margin-top: 8px; display: none; font-size: 0.85rem; font-weight: 600; padding: 8px 12px; border-radius: var(--radius-sm);"></div>
         </div>
 
