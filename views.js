@@ -1092,7 +1092,7 @@ ${isEnglish ?
   stepText.innerText = "Gemini AI đang tư duy và tạo các câu hỏi trắc nghiệm...";
 
   callGeminiAPI(apiKey, promptPayload, { 
-    responseMimeType: "application/json",
+    response_mime_type: "application/json",
     temperature: 0.2 
   })
   .then(result => {
