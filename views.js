@@ -1014,6 +1014,52 @@ async function callGeminiAPI(apiKeyStr, promptText, config = {}) {
   }
 }
 
+async function testSingleAPIKey(apiKey) {
+  const models = [
+    { name: "gemini-2.0-flash", version: "v1beta" },
+    { name: "gemini-2.0-flash", version: "v1" },
+    { name: "gemini-flash-latest", version: "v1beta" },
+    { name: "gemini-flash-latest", version: "v1" },
+    { name: "gemini-1.5-flash", version: "v1beta" },
+    { name: "gemini-1.5-flash", version: "v1" }
+  ];
+
+  let errors = [];
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [{ parts: [{ text: "Hello" }] }]
+      };
+      
+      const adjustedConfig = {};
+      if (model.version === "v1") {
+        adjustedConfig["response_mime_type"] = "text/plain";
+      } else {
+        adjustedConfig["responseMimeType"] = "text/plain";
+      }
+      payload.generationConfig = adjustedConfig;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        return { ok: true, modelUsed: `${model.version}/${model.name}` };
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        const msg = errJson.error?.message || `HTTP ${res.status}`;
+        errors.push(`${model.name} (${model.version}): ${msg}`);
+      }
+    } catch (err) {
+      errors.push(`${model.name} (${model.version}): ${err.message}`);
+    }
+  }
+  return { ok: false, error: errors.join(" | ") };
+}
+
 function robustJSONParse(str) {
   let clean = str.trim();
   
@@ -3026,23 +3072,51 @@ export function renderSettings(container) {
     geminiTestResult.style.display = "none";
 
     try {
-      const result = await callGeminiAPI(key, "Hello");
+      const apiKeys = key.split(",").map(k => k.trim()).filter(Boolean);
+      const testPromises = apiKeys.map(async (apiKey, idx) => {
+        const res = await testSingleAPIKey(apiKey);
+        return { index: idx + 1, ...res };
+      });
+      
+      const results = await Promise.all(testPromises);
+      
       btnTestGemini.innerText = "Kiểm tra kết nối";
       btnTestGemini.disabled = false;
       geminiTestResult.style.display = "block";
+
+      const allSuccess = results.every(r => r.ok);
+      const allFailed = results.every(r => !r.ok);
       
-      let alertHtml = `✓ Kết nối thành công bằng Key #${result.successKeyIndex}! (Mô hình: ${result.modelUsed})<br>`;
-      if (result.errorsBeforeSuccess && result.errorsBeforeSuccess.length > 0) {
-        geminiTestResult.style.backgroundColor = "#fffbeb";
-        geminiTestResult.style.color = "#b45309";
-        alertHtml += `<div style="margin-top: 6px; font-size: 0.8rem; border-top: 1px dashed #f59e0b; padding-top: 6px; text-align: left;">`;
-        result.errorsBeforeSuccess.forEach(err => {
-          alertHtml += `⚠️ ${err}<br>`;
-        });
-        alertHtml += `</div>`;
-      } else {
+      let alertHtml = "";
+      if (allSuccess) {
         geminiTestResult.style.backgroundColor = "#dcfce7";
         geminiTestResult.style.color = "#166534";
+        alertHtml = `✓ Kết nối thành công! Tất cả ${apiKeys.length} API Key đều hoạt động hoàn hảo:<br>`;
+        results.forEach(r => {
+          alertHtml += `<span style="font-size: 0.85rem;">- Key #${r.index}: Hoạt động (Mô hình: ${r.modelUsed})</span><br>`;
+        });
+      } else if (allFailed) {
+        geminiTestResult.style.backgroundColor = "#fee2e2";
+        geminiTestResult.style.color = "#991b1b";
+        alertHtml = `✗ Lỗi kết nối Google API! Không có API Key nào hoạt động:<br>`;
+        results.forEach(r => {
+          alertHtml += `<div style="margin-top: 4px; font-size: 0.8rem; border-top: 1px dashed #f87171; padding-top: 4px; text-align: left;">`;
+          alertHtml += `⚠️ Key #${r.index} hỏng: ${r.error}<br>`;
+          alertHtml += `</div>`;
+        });
+      } else {
+        geminiTestResult.style.backgroundColor = "#fffbeb";
+        geminiTestResult.style.color = "#b45309";
+        alertHtml = `⚠️ Kết nối thành công một phần! (Có khóa lỗi và khóa hoạt động):<br>`;
+        results.forEach(r => {
+          if (r.ok) {
+            alertHtml += `<span style="font-size: 0.85rem; color: #166534; font-weight: bold;">✓ Key #${r.index}: Hoạt động (Mô hình: ${r.modelUsed})</span><br>`;
+          } else {
+            alertHtml += `<div style="margin-top: 4px; font-size: 0.8rem; border-top: 1px dashed #f59e0b; padding-top: 4px; text-align: left; color: #991b1b;">`;
+            alertHtml += `⚠️ Key #${r.index} hỏng: ${r.error}<br>`;
+            alertHtml += `</div>`;
+          }
+        });
       }
       geminiTestResult.innerHTML = alertHtml;
     } catch (err) {
@@ -3051,7 +3125,7 @@ export function renderSettings(container) {
       geminiTestResult.style.display = "block";
       geminiTestResult.style.backgroundColor = "#fee2e2";
       geminiTestResult.style.color = "#991b1b";
-      geminiTestResult.innerHTML = `✗ Lỗi kết nối Google API! Chi tiết: <strong>${err.message}</strong>.<br><small>Mẹo: Hãy đảm bảo bạn đã kích hoạt 'Generative Language API' hoặc tạo khóa API tự động kích hoạt dự án mới từ Google AI Studio.</small>`;
+      geminiTestResult.innerHTML = `✗ Lỗi kiểm tra kết nối: <strong>${err.message}</strong>`;
     }
   });
 
