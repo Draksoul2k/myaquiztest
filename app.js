@@ -320,6 +320,18 @@ function setupNavigation() {
       // If clicked inside the submenu, don't trigger the main menu handler
       if (e.target.closest(".sidebar-submenu")) return;
 
+      // Handle sidebar submenu collapse/expand for Exams without navigating
+      if (item.id === "sidebarExamsMenu") {
+        if (submenu) {
+          const isHidden = submenu.style.display === "none" || submenu.style.display === "";
+          submenu.style.display = isHidden ? "block" : "none";
+          if (chevron) {
+            chevron.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+          }
+        }
+        return; // Stop navigation!
+      }
+
       navItems.forEach(n => n.classList.remove("active"));
       item.classList.add("active");
       
@@ -333,23 +345,11 @@ function setupNavigation() {
         window.currentExamDetailId = null;
       }
 
-      // Handle sidebar submenu collapse/expand
-      if (item.id === "sidebarExamsMenu") {
-        window.activeExamFilter = null; // Clear subject filter
-        if (submenu) {
-          const isHidden = submenu.style.display === "none" || submenu.style.display === "";
-          submenu.style.display = isHidden ? "block" : "none";
-          if (chevron) {
-            chevron.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
-          }
-        }
-      } else {
-        // Hide submenu when navigating to other views
-        if (submenu) {
-          submenu.style.display = "none";
-          if (chevron) {
-            chevron.style.transform = "rotate(0deg)";
-          }
+      // Hide submenu when navigating to other views
+      if (submenu) {
+        submenu.style.display = "none";
+        if (chevron) {
+          chevron.style.transform = "rotate(0deg)";
         }
       }
 

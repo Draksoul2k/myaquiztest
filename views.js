@@ -1367,6 +1367,7 @@ export function openAutoGenerateModal(subject, grade) {
         </button>
       </div>
     </div>
+  </div>
   `;
 
   document.body.appendChild(modal);
