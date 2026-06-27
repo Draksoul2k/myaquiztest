@@ -111,7 +111,6 @@ input, textarea, button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   padding: 24px 16px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -133,7 +132,7 @@ input, textarea, button {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  margin: auto 0;
+  margin: auto;
   flex-shrink: 0;
 }
 
@@ -1836,14 +1835,14 @@ input:checked + .slider:before {
   .auth-card {
     padding: 24px 20px;
     gap: 18px;
-    margin: auto 0;
+    margin: auto;
   }
   
   @media (max-width: 480px) {
     .auth-card {
       padding: 20px 16px;
       gap: 14px;
-      margin: auto 0;
+      margin: auto;
     }
     .auth-brand {
       font-size: 1.45rem !important;

@@ -881,8 +881,12 @@ function startSimulatedAIGeneration(subjectKey, promptText) {
 
       const newExam = store.addExam({
         title: examTitle,
-        subject: template.subject,
-        questions: template.questions
+        subject: subjectName,
+        grade: gradeVal,
+        duration: duration,
+        difficulty: difficulty,
+        examType: examType,
+        questions: finalQuestions.length > 0 ? finalQuestions : template.questions
       });
 
       attachedFiles = [];
@@ -1277,8 +1281,8 @@ export function openAutoGenerateModal(subject, grade) {
   
   modal.innerHTML = `
     <div class="modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); z-index: 9999;"></div>
-    <div class="modal-content" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; width: 100%; max-width: 580px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 28px; display: flex; flex-direction: column; gap: 20px;">
-      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+    <div class="modal-content" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; width: calc(100% - 32px); max-width: 580px; max-height: 90vh; max-height: 90dvh; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 18px 24px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--primary));"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <h2 style="font-family: var(--font-headings); font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin: 0;">Tạo đề tự động bằng AI</h2>
@@ -1286,7 +1290,7 @@ export function openAutoGenerateModal(subject, grade) {
         <button class="btn-close-auto-generate" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.5rem; line-height: 1; padding: 4px;">&times;</button>
       </div>
 
-      <div class="modal-body" style="display: flex; flex-direction: column; gap: 18px;">
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 18px; padding: 20px 24px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch;">
         <p style="font-size: 0.925rem; color: var(--text-muted);">
           Hệ thống AI sẽ tự động biên soạn nội dung, câu hỏi trắc nghiệm và lời giải chi tiết cho môn <strong>${subject} - Lớp ${grade}</strong>.
         </p>
@@ -1355,7 +1359,7 @@ export function openAutoGenerateModal(subject, grade) {
         </div>
       </div>
 
-      <div class="modal-footer" style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 4px;">
+      <div class="modal-footer" style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color); padding: 16px 24px; background: var(--bg-card);">
         <button class="btn btn-secondary btn-cancel-auto-generate" style="padding: 10px 18px;">Hủy</button>
         <button id="btnStartAutoGenerate" class="btn btn-primary" style="padding: 10px 22px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
           Bắt đầu tạo đề

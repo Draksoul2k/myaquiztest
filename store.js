@@ -165,12 +165,15 @@ export function saveState(state) {
 // Authentication Helpers
 export function login(email, password, role) {
   const state = getState();
-  const matchedUser = state.users.find(u => u.email === email && u.password === password);
+  const matchedUser = state.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password);
   if (matchedUser) {
     state.isLoggedIn = true;
     const nowStr = new Date().toISOString();
     if (role) {
       matchedUser.role = role;
+    }
+    if (!matchedUser.createdAt) {
+      matchedUser.createdAt = nowStr;
     }
     state.user = {
       ...state.user,
@@ -178,8 +181,8 @@ export function login(email, password, role) {
       email: matchedUser.email,
       plan: matchedUser.plan || "Trial",
       theme: state.user.theme || "light",
-      createdAt: matchedUser.createdAt || state.user.createdAt || nowStr,
-      proExpiredAt: matchedUser.proExpiredAt || state.user.proExpiredAt || "",
+      createdAt: matchedUser.createdAt,
+      proExpiredAt: matchedUser.proExpiredAt || "",
       role: matchedUser.role || "teacher"
     };
     saveState(state);
@@ -193,22 +196,9 @@ export function loginGoogle(email, name, avatarUrl, role) {
   state.isLoggedIn = true;
   
   const nowStr = new Date().toISOString();
-  // Set active user, preserve theme, API keys, etc.
-  state.user = {
-    ...state.user,
-    name: name,
-    email: email,
-    avatarUrl: avatarUrl || "",
-    plan: state.user.plan || "Trial",
-    createdAt: state.user.createdAt || nowStr,
-    proExpiredAt: state.user.proExpiredAt || "",
-    role: role || state.user.role || "teacher"
-  };
-
-  // Add to simulated database list if they don't exist yet
-  const userInList = state.users.find(u => u.email === email);
+  const userInList = state.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
   if (!userInList) {
-    state.users.push({
+    const newUser = {
       email: email,
       name: name,
       plan: "Trial",
@@ -217,16 +207,29 @@ export function loginGoogle(email, name, avatarUrl, role) {
       createdAt: nowStr,
       proExpiredAt: "",
       role: role || "teacher"
-    });
+    };
+    state.users.push(newUser);
+    state.user = {
+      ...state.user,
+      ...newUser
+    };
   } else {
     if (role) {
       userInList.role = role;
     }
-    // Sync list values to active user if they already exist
-    state.user.plan = userInList.plan || "Trial";
-    state.user.createdAt = userInList.createdAt || nowStr;
-    state.user.proExpiredAt = userInList.proExpiredAt || "";
-    state.user.role = userInList.role || "teacher";
+    state.user = {
+      ...state.user,
+      name: name,
+      email: email,
+      avatarUrl: avatarUrl || userInList.avatarUrl || "",
+      plan: userInList.plan || "Trial",
+      createdAt: userInList.createdAt || nowStr,
+      proExpiredAt: userInList.proExpiredAt || "",
+      role: userInList.role || "teacher"
+    };
+    if (!userInList.createdAt) {
+      userInList.createdAt = state.user.createdAt;
+    }
   }
 
   saveState(state);
@@ -235,13 +238,12 @@ export function loginGoogle(email, name, avatarUrl, role) {
 
 export function register(name, email, password, role) {
   const state = getState();
-  const exists = state.users.some(u => u.email === email);
+  const exists = state.users.some(u => u.email.toLowerCase() === email.trim().toLowerCase());
   if (exists) {
     return false; // Email already registered
   }
 
   const nowStr = new Date().toISOString();
-  // Create new user in users array
   const newUser = { 
     name, 
     email, 
@@ -253,7 +255,6 @@ export function register(name, email, password, role) {
   };
   state.users.push(newUser);
 
-  // Automatically log them in
   state.isLoggedIn = true;
   state.user = {
     ...state.user,
@@ -281,11 +282,17 @@ export function updateUser(userData) {
   const state = getState();
   state.user = { ...state.user, ...userData };
   
-  // Sync the updated user info back to the users list
-  const userIdx = state.users.findIndex(u => u.email === state.user.email);
+  const userIdx = state.users.findIndex(u => u.email.toLowerCase() === state.user.email.toLowerCase());
   if (userIdx !== -1) {
-    state.users[userIdx].name = state.user.name;
-    state.users[userIdx].plan = state.user.plan;
+    state.users[userIdx] = {
+      ...state.users[userIdx],
+      name: state.user.name,
+      plan: state.user.plan,
+      createdAt: state.user.createdAt,
+      proExpiredAt: state.user.proExpiredAt,
+      role: state.user.role,
+      avatarUrl: state.user.avatarUrl || state.users[userIdx].avatarUrl || ""
+    };
   }
 
   saveState(state);
@@ -436,7 +443,7 @@ export function upgradeToPro(months = 1) {
   state.user.proExpiredAt = new Date(proExpiration).toISOString();
   
   // Update in simulated users list
-  const userIdx = state.users.findIndex(u => u.email === state.user.email);
+  const userIdx = state.users.findIndex(u => u.email.toLowerCase() === state.user.email.toLowerCase());
   if (userIdx !== -1) {
     state.users[userIdx].plan = "Pro";
     state.users[userIdx].proExpiredAt = state.user.proExpiredAt;
